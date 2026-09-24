@@ -1,7 +1,7 @@
 # Urban Reserve
 
 A full-screen, non-scrolling presentation app for Urban Reserve, built from the brochure (`260916_URBAN RESERVE BROCHURE MANUAL V1.pdf`).
-It runs as Landing → Menu → one page per section, with a terrain-edged curtain transition between screens.
+It runs like an app: a tap-to-start cover opens onto a Home hub of section tiles, and a dock keeps every section one tap away. The terrain-edged curtain plays only when entering or leaving the cover; inside the app a tapped tile grows into its screen and dock taps cross-fade.
 
 ```
 npm install
@@ -17,7 +17,8 @@ React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap
 | Path | What |
 | --- | --- |
 | `src/data/content.js` | All copy, images, plans, amenities, specs, contact details and panoramas |
-| `src/app/` | Routing and transitions (`Navigator.jsx`), the curtain and the chrome. React Router owns the URL; the curtain decides when the screen swaps |
+| `src/app/` | Routing and transitions (`Navigator.jsx`), the curtain, and the chrome (top bar + dock). React Router owns the URL; `Navigator` decides when and how the screen swaps |
+| `src/components/ZoomPan.jsx` | Pinch / drag / wheel / double-tap zoom for plans and the map, with `focus(u, v)` to fly to a point. Room, amenity and landmark coordinates live in `content.js` |
 | `src/screens/` | One file per screen |
 | `src/art/` | Brand art: vector logo, `Terrain` (the cover's real torn edge), `Botanical`s traced from the brochure, `SunBirds` |
 | `src/app/FullscreenGate.jsx` | The full-screen gate. The app only runs in full screen, and the gate returns when you leave it |
@@ -26,7 +27,7 @@ React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap
 
 ## Routes and hosting
 
-Each screen has its own path: `/`, `/menu`, `/overview`, `/residences`, `/amenities`, `/views`, `/location`, `/specifications` and `/enquire`. Anything else redirects to `/`.
+Each screen has its own path: `/`, `/home`, `/overview`, `/residences`, `/amenities`, `/views`, `/location`, `/specifications` and `/enquire`. `/menu` redirects to `/home`; anything else redirects to `/`.
 
 Because these are real paths, the host must serve `index.html` for every route, or deep links and page reloads will return 404. `npm run dev` and `npm run preview` already do this. Netlify needs `/* /index.html 200` in `public/_redirects`. Vercel needs a rewrite of `/(.*)` to `/index.html`.
 
@@ -65,3 +66,15 @@ node scripts/extract-ridges.mjs /tmp/brochure-hi
 
 - Replace the placeholder phone, WhatsApp number and email in `BRAND` (`src/data/content.js`).
 - Swap in the original renders and plans when available. The brochure crops are good, but not print-master quality.
+
+## Location map and routes
+
+The Location screen uses MapLibre with OpenFreeMap vector tiles (no API key), styled in `src/components/mapStyle.js`. If the map can't load (no internet), it falls back to the illustrated brochure map.
+
+The project site and landmark positions are in `LOCATION` (`src/data/content.js`), and the rules for which travel modes to offer are in `TRAVEL`. Road-following route shapes are saved in `src/data/routes.json`. After changing the site or a landmark, regenerate them:
+
+```
+node scripts/build-routes.mjs
+```
+
+Car and walking times in `content.js` came from Mapbox routing (typical traffic). Buses are not offered: OpenStreetMap route data shows no bus stop near the site, and the only direct route (to Wockhardt) is slower than driving or walking. Walking is shown only when it takes 15 minutes or less.

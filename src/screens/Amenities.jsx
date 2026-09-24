@@ -1,19 +1,119 @@
 import { useCallback, useRef, useState } from 'react'
 import { useIntro, useTone } from '../hooks/useIntro'
 import { AMENITY_LEVELS } from '../data/content'
-import { Tabs, Swap, Lightbox, Bullets } from '../components/ui'
+import { Segmented, Swap, Lightbox, Icon } from '../components/ui'
+import ZoomPan, { Pin } from '../components/ZoomPan'
 import Botanical from '../art/Botanical'
-import Terrain from '../art/Terrain'
 
 function Thumb({ photo, onOpen, className = '' }) {
   return (
-    <button onClick={onOpen} className={`group relative overflow-hidden bg-forest-800 ${className}`} aria-label={`View ${photo.label}`}>
+    <button onClick={onOpen} className={`group relative overflow-hidden rounded-[1.25rem] bg-forest-800 active:scale-[0.98] ${className}`} aria-label={`View ${photo.label}`}>
       <img src={photo.image} alt={photo.label} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-110" />
-      <span className="absolute inset-0 bg-forest-950/0 transition-colors duration-500 group-hover:bg-forest-950/25" />
-      <span className="label absolute bottom-2 left-2 translate-y-2 bg-forest-950/70 px-2 py-1 text-[max(0.58rem,9px)] text-ivory opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
-        {photo.label}
-      </span>
+      <span className="label absolute bottom-3 left-3 rounded-full bg-forest-950/70 px-3 py-1.5 text-[max(0.58rem,9px)] text-ivory backdrop-blur-sm">{photo.label}</span>
     </button>
+  )
+}
+
+function Chip({ on, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-left text-[clamp(0.75rem,1.55vh,0.9rem)] transition-colors duration-300 active:scale-95 ${
+        on ? 'border-gold bg-gold text-forest-950' : 'border-ivory/20 text-ivory/85 hover:border-ivory/50'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// Ground level and E-Deck: the plan is the interface; picking an amenity flies to it.
+function Level({ lvl, onPhoto }) {
+  const zp = useRef(null)
+  const [spot, setSpot] = useState(null)
+  const s = spot != null ? lvl.spots[spot] : null
+
+  const pick = (i) => {
+    if (spot === i) {
+      setSpot(null)
+      zp.current?.reset()
+      return
+    }
+    setSpot(i)
+    zp.current?.focus(...lvl.spots[i].at, 2)
+  }
+
+  return (
+    <>
+      <div data-swap data-in className="mt-[2.5vh] flex flex-wrap gap-2">
+        {lvl.spots.map((sp, i) => (
+          <Chip key={sp.name} on={spot === i} onClick={() => pick(i)}>
+            {sp.name}
+            {sp.photo != null && <Icon name="spark" className="size-3.5 opacity-60" />}
+          </Chip>
+        ))}
+      </div>
+      <button data-swap data-in onClick={() => onPhoto(0)} className="label mt-[2.5vh] flex w-fit items-center gap-2 text-gold-lit active:scale-95">
+        <Icon name="arrow" className="size-4" /> Photo gallery · {lvl.photos.length}
+      </button>
+
+      <div data-swap data-mask className="relative min-h-[50vh] lg:absolute lg:inset-y-0 lg:left-[calc(30%+2.5vw)] lg:right-0 lg:min-h-0">
+        <ZoomPan ref={zp} src={lvl.plan} alt={`${lvl.label} plan`} aspect={lvl.aspect} className="absolute inset-0 rounded-[1.25rem] bg-paper" imgClassName="mix-blend-multiply">
+          {lvl.spots.map((sp, i) => (
+            <Pin key={sp.name} u={sp.at[0]} v={sp.at[1]} label={sp.name} active={spot === i} onClick={() => pick(i)} quiet />
+          ))}
+        </ZoomPan>
+        {s && (
+          <div key={s.name} className="card-in absolute bottom-3 left-3 flex max-w-[min(26rem,80%)] items-center gap-3 rounded-2xl bg-forest-950/90 p-2 pr-5 text-ivory shadow-2xl backdrop-blur-md">
+            {s.photo != null ? (
+              <button onClick={() => onPhoto(s.photo)} className="relative size-20 shrink-0 overflow-hidden rounded-xl active:scale-95" aria-label={`View ${s.name} photo`}>
+                <img src={lvl.photos[s.photo].image} alt="" className="h-full w-full object-cover" />
+              </button>
+            ) : (
+              <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-ivory/10 text-gold-lit">
+                <Icon name="pin" className="size-6" />
+              </span>
+            )}
+            <span>
+              <span className="label block text-[max(0.58rem,9px)] text-gold-lit">{lvl.label}</span>
+              <span className="mt-1 block font-display text-[clamp(1.1rem,2.4vh,1.5rem)] leading-tight">{s.name}</span>
+              {s.photo != null && <span className="mt-0.5 block text-xs text-ivory/60">Tap the photo to enlarge</span>}
+            </span>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function Common({ lvl, onPhoto }) {
+  const [g, setG] = useState(0)
+  return (
+    <>
+      <div data-swap data-in className="mt-[2.5vh] flex flex-wrap gap-2">
+        {lvl.groups.map((grp, i) => (
+          <Chip key={grp.title} on={g === i} onClick={() => setG(i)}>
+            <Icon name={grp.icon} className="size-4" />
+            {grp.title}
+          </Chip>
+        ))}
+      </div>
+      <ul data-swap data-in className="mt-[2.5vh] grid grid-cols-2 gap-x-4 gap-y-[1vh] text-[clamp(0.8rem,1.65vh,0.95rem)] text-ivory/85">
+        {lvl.groups[g].items.map((t) => (
+          <li key={t} className="flex items-center gap-2.5">
+            <span className="size-1.5 shrink-0 rounded-full bg-ember" />
+            {t}
+          </li>
+        ))}
+      </ul>
+
+      <div data-swap className="relative grid min-h-[50vh] grid-cols-[1fr_1fr_1.15fr] grid-rows-2 gap-3 lg:absolute lg:inset-y-0 lg:left-[calc(30%+2.5vw)] lg:right-0 lg:min-h-0">
+        <Thumb photo={lvl.photos[1]} onOpen={() => onPhoto(1)} />
+        <Thumb photo={lvl.photos[2]} onOpen={() => onPhoto(2)} />
+        <Thumb photo={lvl.photos[0]} onOpen={() => onPhoto(0)} className="row-span-2" />
+        <Thumb photo={lvl.photos[3]} onOpen={() => onPhoto(3)} className="col-span-2" />
+      </div>
+    </>
   )
 }
 
@@ -26,66 +126,27 @@ export default function Amenities() {
   useIntro(root)
 
   const lvl = AMENITY_LEVELS.find((l) => l.id === id)
-  const small = 'text-[clamp(0.78rem,1.65vh,0.95rem)]'
 
   return (
     <section ref={root} className="screen bg-forest-900 text-ivory">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_12%_18%,rgb(63_111_98/0.35),transparent_55%)]" />
       <Botanical kind="monstera" seed={21} depth={16} className="bottom-0 left-0 w-[10vw] text-gold/15" />
 
-      <div className="safe relative grid h-full gap-[4vh] pane lg:grid-cols-[minmax(20rem,35%)_1fr] lg:gap-[3.5vw]">
-        <div className="flex flex-col justify-center-safe lg:min-h-0">
-          <p data-in className="eyebrow text-gold-lit">Amenities</p>
-          <div data-in className="mt-[2.5vh]">
-            <Tabs items={AMENITY_LEVELS} value={id} onChange={setId} />
+      <div className="safe pane relative h-full">
+        <div className="relative min-h-full lg:h-full">
+          <div className="flex flex-col justify-center-safe lg:h-full lg:w-[30%]">
+            <p data-in className="eyebrow text-gold-lit">Amenities</p>
+            <div data-in className="mt-[2.5vh]">
+              <Segmented items={AMENITY_LEVELS} value={id} onChange={setId} tone="dark" />
+            </div>
+            <Swap id={id} className="contents">
+              <p data-swap data-in className="label mt-[3vh] text-ember">{lvl.tagline}</p>
+              <h2 data-swap data-in className="display mt-[1vh] text-[clamp(1.7rem,4.4vh,3.2rem)] font-normal text-gold-lit">{lvl.heading}</h2>
+              <p data-swap data-in className="mt-[1.5vh] text-[clamp(0.8rem,1.65vh,0.95rem)] leading-relaxed text-ivory/70">{lvl.body}</p>
+              {lvl.plan ? <Level key={lvl.id} lvl={lvl} onPhoto={setPhoto} /> : <Common lvl={lvl} onPhoto={setPhoto} />}
+            </Swap>
           </div>
-          <Swap id={id} className="mt-[3vh]">
-            <p data-swap data-in className="label text-ember">{lvl.tagline}</p>
-            <h2 data-swap data-in className="display mt-[1.2vh] text-[clamp(1.7rem,4.6vh,3.3rem)] font-normal text-gold-lit">{lvl.heading}</h2>
-            <p data-swap data-in className={`mt-[2vh] leading-relaxed text-ivory/75 ${small}`}>{lvl.body}</p>
-            {lvl.list ? (
-              <Bullets data-swap data-in items={lvl.list} className={`mt-[2.5vh] columns-2 gap-6 text-ivory/90 ${small}`} />
-            ) : (
-              <div data-swap data-in className="mt-[2.5vh] grid grid-cols-2 gap-6">
-                {lvl.groups.slice(0, 2).map((g) => (
-                  <div key={g.title}>
-                    <h3 className="font-display text-[clamp(1.05rem,2.3vh,1.4rem)] text-gold-lit">{g.title}</h3>
-                    <Bullets items={g.items} className={`mt-2 text-ivory/90 ${small}`} />
-                  </div>
-                ))}
-              </div>
-            )}
-            {lvl.plan && (
-              <div data-swap data-in className="mt-[3vh] grid grid-cols-4 gap-2">
-                {lvl.photos.map((p, i) => (
-                  <Thumb key={p.image} photo={p} onOpen={() => setPhoto(i)} className="aspect-[4/3]" />
-                ))}
-              </div>
-            )}
-          </Swap>
         </div>
-
-        <Swap id={id} className="relative min-h-[45vh] lg:min-h-0">
-          {lvl.plan ? (
-            <div data-swap data-mask className="absolute inset-0 pt-[3.4vh]">
-              <Terrain side="top" seed={id === 'ground' ? 61 : 67} amp={60} className="absolute inset-x-0 top-0 h-[3.6vh] w-full text-paper" />
-              <div className="flex h-full items-center justify-center bg-paper p-[2vh]">
-                <img src={lvl.plan} alt={`${lvl.label} plan`} className="max-h-full max-w-full object-contain mix-blend-multiply" />
-              </div>
-            </div>
-          ) : (
-            <div data-swap className="absolute inset-0 grid grid-cols-[1fr_1fr_1.15fr] grid-rows-[1fr_auto] gap-3">
-              <Thumb photo={lvl.photos[1]} onOpen={() => setPhoto(1)} />
-              <Thumb photo={lvl.photos[2]} onOpen={() => setPhoto(2)} />
-              <Thumb photo={lvl.photos[0]} onOpen={() => setPhoto(0)} className="row-span-2" />
-              <div className="relative col-span-2 bg-paper p-[2.4vh] text-forest-900">
-                <Terrain side="top" seed={71} amp={55} className="absolute inset-x-0 -top-[2.4vh] h-[2.5vh] w-full text-paper" />
-                <h3 className="font-display text-[clamp(1.05rem,2.3vh,1.4rem)] text-ember-deep">{lvl.groups[2].title}</h3>
-                <Bullets items={lvl.groups[2].items} className={`mt-2 columns-3 gap-5 text-ink/80 ${small}`} />
-              </div>
-            </div>
-          )}
-        </Swap>
       </div>
 
       {photo != null && <Lightbox photos={lvl.photos} index={photo} onClose={close} />}

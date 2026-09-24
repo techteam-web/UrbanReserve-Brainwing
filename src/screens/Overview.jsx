@@ -7,6 +7,7 @@ import { Mark } from '../art/Brand'
 import Botanical from '../art/Botanical'
 import SunBirds from '../art/SunBirds'
 import Terrain from '../art/Terrain'
+import { Icon } from '../components/ui'
 
 gsap.registerPlugin(Observer)
 
@@ -190,7 +191,8 @@ const SLIDES = [
   { id: 'building', label: 'Building', tone: 'dark', C: Building },
   { id: 'lobby', label: 'Lobby', tone: 'dark', C: Lobby },
 ]
-const PAGER_TONE = ['light', 'dark', 'light', 'dark', 'dark']
+// ink for the right-hand edge of each slide, where the pager sits
+const PAGER_TONE_R = ['light', 'dark', 'dark', 'dark', 'dark']
 
 export default function Overview() {
   const root = useRef(null)
@@ -260,8 +262,6 @@ export default function Overview() {
     { scope: root },
   )
 
-  const pagerInk = PAGER_TONE[idx] === 'dark' ? 'text-ivory' : 'text-forest-900'
-
   return (
     <section ref={root} className="screen bg-forest-950">
       {SLIDES.map(({ id, C }, i) => (
@@ -270,14 +270,23 @@ export default function Overview() {
         </div>
       ))}
 
-      <div className={`absolute bottom-0 left-1/2 z-10 flex h-(--chrome-bot) -translate-x-1/2 items-center gap-1 transition-colors duration-700 ${pagerInk}`}>
+      {/* the dock owns the bottom edge, so the slide pager runs down the right */}
+      <div className={`absolute right-[calc(var(--gutter)*0.3)] top-1/2 z-10 flex -translate-y-1/2 flex-col items-end gap-1 transition-colors duration-700 ${PAGER_TONE_R[idx] === 'dark' ? 'text-ivory' : 'text-forest-900'}`}>
         {SLIDES.map((s, i) => (
-          <button key={s.id} onClick={() => show.current(i)} className="group flex items-center gap-2 px-2 py-3" aria-label={`Show ${s.label}`} aria-current={idx === i}>
-            <span className={`h-px bg-current transition-all duration-700 ${idx === i ? 'w-10 opacity-100' : 'w-5 opacity-35 group-hover:opacity-80'}`} />
-            <span className={`label hidden ${idx === i ? 'md:inline' : ''}`}>{s.label}</span>
+          <button key={s.id} onClick={() => show.current(i)} className="group flex items-center justify-end px-2 py-2.5" aria-label={`Show ${s.label}`} aria-current={idx === i}>
+            <span className={`w-[3px] rounded-full bg-current transition-all duration-700 ${idx === i ? 'h-9 opacity-100' : 'h-4 opacity-35 group-hover:opacity-80'}`} />
           </button>
         ))}
       </div>
+      {idx < SLIDES.length - 1 && (
+        <button
+          onClick={() => show.current(idx + 1)}
+          className={`label absolute bottom-[calc(var(--chrome-bot)+0.75rem)] right-(--gutter) z-10 flex items-center gap-3 rounded-full border border-current/30 py-2.5 pl-5 pr-3 transition-colors duration-700 hover:border-current active:scale-95 ${PAGER_TONE_R[idx] === 'dark' ? 'text-ivory' : 'text-forest-900'}`}
+        >
+          {SLIDES[idx + 1].label}
+          <Icon name="arrow" className="size-4" />
+        </button>
+      )}
     </section>
   )
 }

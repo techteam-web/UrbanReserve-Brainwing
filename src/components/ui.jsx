@@ -2,26 +2,30 @@ import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
 import ICON_PATHS from './iconPaths'
 
-export function Tabs({ items, value, onChange, vertical = false, className = '' }) {
+// iOS-style segmented control: the selected option sits on a sliding pill.
+export function Segmented({ items, value, onChange, tone = 'light', size = 'md', className = '' }) {
+  const i = Math.max(0, items.findIndex((t) => t.id === value))
+  const dark = tone === 'dark'
   return (
-    <div role="tablist" className={`flex ${vertical ? 'flex-col gap-1' : 'flex-wrap gap-x-7 gap-y-2 border-b border-current/15'} ${className}`}>
-      {items.map((t, i) => {
-        const on = value === t.id
+    <div role="tablist" className={`relative grid rounded-full p-1 ${dark ? 'bg-ivory/10' : 'bg-forest-900/[0.07]'} ${className}`} style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+      <span
+        aria-hidden="true"
+        className={`absolute inset-y-1 left-1 rounded-full shadow-sm transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] ${dark ? 'bg-gold' : 'bg-white'}`}
+        style={{ width: `calc((100% - 0.5rem) / ${items.length})`, transform: `translateX(${i * 100}%)` }}
+      />
+      {items.map((t) => {
+        const on = t.id === value
         return (
           <button
             key={t.id}
             role="tab"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className={`group relative flex items-baseline gap-3 text-left transition-opacity duration-500 ${vertical ? 'py-2.5' : 'pb-3 pt-1'} ${on ? 'opacity-100' : 'opacity-45 hover:opacity-80'}`}
+            className={`label relative z-[1] truncate rounded-full transition-colors duration-300 active:scale-95 ${size === 'sm' ? 'px-2 py-2 text-[max(0.58rem,9px)]' : 'px-3 py-3'} ${
+              on ? (dark ? 'text-forest-950' : 'text-forest-900') : dark ? 'text-ivory/70' : 'text-forest-900/55'
+            }`}
           >
-            {vertical && <span className="font-display text-sm text-ember">{String(i + 1).padStart(2, '0')}</span>}
-            <span className={vertical ? 'font-display text-[clamp(1.2rem,2.6vh,1.7rem)] uppercase tracking-[0.06em]' : 'label'}>{t.label}</span>
-            <span
-              className={`absolute bg-ember transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${
-                vertical ? '-left-[var(--gutter)] top-1/2 h-px w-[calc(var(--gutter)-0.75rem)] origin-left -translate-y-1/2' : 'inset-x-0 -bottom-px h-[2px] origin-left'
-              } ${on ? 'scale-x-100' : 'scale-x-0'}`}
-            />
+            {t.short ?? t.label}
           </button>
         )
       })}
@@ -38,7 +42,7 @@ export function Swap({ id, className = '', children }) {
       if (shown.current === id) return
       shown.current = id
       if (reduced()) return
-      gsap.fromTo(ref.current.querySelectorAll('[data-swap]'), { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.06, overwrite: true })
+      gsap.fromTo(ref.current.querySelectorAll('[data-swap]'), { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.05, overwrite: true })
     },
     { scope: ref, dependencies: [id] },
   )
@@ -90,20 +94,6 @@ export function Lightbox({ photos, index, onClose }) {
     </div>
   )
 }
-
-export function Bullets({ items, className = '', ...rest }) {
-  return (
-    <ul className={className} {...rest}>
-      {items.map((t) => (
-        <li key={t} className="flex gap-3 break-inside-avoid py-[0.28em]">
-          <span className="mt-[0.72em] h-[3px] w-[3px] shrink-0 rounded-full bg-ember" />
-          <span>{t}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 
 export function Icon({ name, className = 'h-4 w-4' }) {
   return (

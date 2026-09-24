@@ -5,9 +5,10 @@ export const NavContext = createContext(null)
 export const useNav = () => useContext(NavContext)
 
 export const SECTION_IDS = SECTIONS.map((s) => s.id)
-export const ROUTES = ['landing', 'menu', ...SECTION_IDS, 'enquire']
+export const ROUTES = ['landing', 'home', ...SECTION_IDS, 'enquire']
 
-export const isPage = (id) => id !== 'landing' && id !== 'menu'
+// every screen after the cover runs inside the app shell (top bar + dock)
+export const isPage = (id) => id !== 'landing'
 
 export const pathFor = (id) => (id === 'landing' ? '/' : `/${id}`)
 
@@ -16,7 +17,7 @@ export function idFor(pathname) {
   return ROUTES.includes(id) ? id : null
 }
 
-const depth = (id) => (id === 'landing' ? 0 : id === 'menu' ? 1 : 2)
+const depth = (id) => (id === 'landing' ? 0 : id === 'home' ? 1 : 2)
 
 export function direction(from, to) {
   const d = depth(to) - depth(from)
@@ -24,7 +25,7 @@ export function direction(from, to) {
   return ROUTES.indexOf(to) >= ROUTES.indexOf(from) ? 1 : -1
 }
 
-// Screens read this once on mount so their intro starts as the curtain clears.
+// Screens read this once on mount so their intro starts as the transition clears.
 let delay = 0.15
 export const introDelay = () => delay
 export const setIntroDelay = (d) => {

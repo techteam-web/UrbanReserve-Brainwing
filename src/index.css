@@ -186,6 +186,32 @@
   }
 }
 
+/* the horizon rises in when leaving home for a section */
+.horizon-in {
+  animation: horizon-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+@keyframes horizon-in {
+  from { opacity: 0; transform: translateY(100%); }
+}
+
+/* the horizon's sun: a warm disc with a breathing glow */
+.sun {
+  background: radial-gradient(circle at 40% 35%, #fff4d6, #e6c983 45%, #e0702a 100%);
+  box-shadow: 0 0 0 0.35rem rgb(230 201 131 / 0.14), 0 0 1.6rem 0.4rem rgb(230 201 131 / 0.55);
+  animation: sun-breathe 3.2s ease-in-out infinite;
+}
+@keyframes sun-breathe {
+  50% { box-shadow: 0 0 0 0.6rem rgb(230 201 131 / 0.08), 0 0 2.4rem 0.7rem rgb(230 201 131 / 0.45); }
+}
+
+/* floating detail cards (amenity, landmark) rise in when a spot is picked */
+.card-in {
+  animation: card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+}
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(0.75rem); }
+}
+
 /* Fullscreen gate motion is CSS-only: GSAP's global timeline is paused while it shows. */
 .gate-in > * {
   animation: gate-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -214,10 +240,121 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gate-in > *,
+  .horizon-in,
+  .sun,
   .gate-ring {
     animation: none;
   }
   .drift {
     translate: none;
   }
+}
+
+/* live map (MapLibre) markers, styled like the brochure's sand map pins */
+.lm-pin {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+/* MapLibre writes an inline opacity on markers, so filtered-out pins hide via visibility */
+.lm-pin.is-off {
+  visibility: hidden;
+}
+.lm-dot {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: var(--color-sand);
+  color: #fff;
+  box-shadow: 0 0 0 0.3rem rgb(198 143 91 / 0.2), 0 8px 18px -6px rgb(0 0 0 / 0.5);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s, box-shadow 0.3s;
+}
+.lm-dot svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+.lm-name {
+  font-family: var(--font-sans);
+  font-size: max(0.72rem, 11px);
+  font-weight: 500;
+  color: var(--color-ivory);
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgb(13 35 29 / 0.9);
+}
+.lm-pin:hover .lm-dot {
+  transform: scale(1.08);
+}
+.lm-pin.is-on {
+  z-index: 2;
+}
+.lm-pin.is-on .lm-dot {
+  background: var(--color-gold-lit);
+  color: var(--color-forest-950);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 0.45rem rgb(230 201 131 / 0.3), 0 0 1.5rem 0.3rem rgb(230 201 131 / 0.45);
+}
+.lm-pin.is-on .lm-name {
+  color: var(--color-gold-lit);
+}
+.lm-site {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 5.5rem;
+  height: 5.5rem;
+}
+.lm-site-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgb(250 247 242 / 0.18);
+  animation: site-pulse 2.8s ease-out infinite;
+}
+.lm-site-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 999px;
+  background: var(--color-ivory);
+  color: var(--color-gold-deep);
+  box-shadow: 0 10px 30px -8px rgb(0 0 0 / 0.6);
+}
+.lm-site-mark svg {
+  width: 55%;
+  height: auto;
+}
+@keyframes site-pulse {
+  from { transform: scale(0.8); opacity: 1; }
+  to { transform: scale(1.6); opacity: 0; }
+}
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgb(13 35 29 / 0.7);
+  color: rgb(250 247 242 / 0.7);
+}
+.maplibregl-ctrl-attrib a {
+  color: rgb(250 247 242 / 0.8);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lm-site-ring {
+    animation: none;
+  }
+}
+
+/* the route popup over a picked landmark */
+.lm-popup .maplibregl-popup-content {
+  padding: 0.9rem 1rem 0.8rem;
+  border: 1px solid rgb(250 247 242 / 0.12);
+  border-radius: 1rem;
+  background: rgb(13 35 29 / 0.95);
+  box-shadow: 0 24px 48px -16px rgb(0 0 0 / 0.65);
+  backdrop-filter: blur(10px);
+  animation: card-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.lm-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: rgb(13 35 29 / 0.95);
 }

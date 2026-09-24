@@ -18,7 +18,7 @@ export default function Landing() {
   })
 
   return (
-    <section ref={root} className="screen bg-forest-950 text-ivory">
+    <section ref={root} onClick={() => go('home')} className="screen cursor-pointer bg-forest-950 text-ivory">
       <img data-bg src={LANDING.image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45 mix-blend-luminosity" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,transparent_0%,rgb(13_35_29/0.55)_55%,rgb(13_35_29/0.92)_100%)]" />
 
@@ -53,8 +53,8 @@ export default function Landing() {
         </h1>
         <p data-in className="mt-[2.5vh] text-[0.78rem] font-medium uppercase tracking-[0.46em] text-gold">{BRAND.tagline}</p>
         <div data-in className="mt-[5vh]">
-          <button onClick={() => go('menu')} className="btn group text-ivory">
-            Enter Experience
+          <button className="btn group text-ivory">
+            Touch to explore
             <svg viewBox="0 0 24 24" className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1" fill="none" stroke="currentColor" strokeWidth="1.3">
               <path d="M4 12h15M13 6l6 6-6 6" />
             </svg>

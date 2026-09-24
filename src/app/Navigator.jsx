@@ -2,22 +2,49 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Curtain from './Curtain'
-import { NavContext, direction, idFor, isPage, pathFor, setIntroDelay } from './nav'
-import { decodeImages } from './decode'
-import { ROUTE_IMAGES } from '../data/content'
+import { NavContext, direction, idFor, pathFor, setIntroDelay } from './nav'
+import { decodeImages, settled } from './decode'
+import { gsap, reduced } from '../gsap/gsapConfig'
+import { ALL_IMAGES, ROUTE_IMAGES } from '../data/content'
+
+const layerOf = (location) => document.querySelector(`[data-layer="${location.key}"]`)
 
 /**
- * React Router owns the URL; this owns *when* the screen changes. A new location starts a curtain
- * sweep, and the rendered location (`shown`) only switches while the curtain covers the page.
- * One sweep runs at a time; locations arriving mid-sweep are queued (latest wins).
+ * The new screen is mounted as a layer above the old one and animated in, then the old layer is
+ * dropped. Opened from a home tile, it grows out of that tile's rectangle; from the dock it slides
+ * and fades. Screens do not wait for a page turn, which is what makes it feel like an app.
  */
-function createDirector(initialId, setShown) {
+function enter(location, prev, dir) {
+  const el = layerOf(location)
+  const old = prev && layerOf(prev)
+  const origin = location.state?.origin
+  const tl = gsap.timeline()
+  if (!el || reduced()) return tl
+  if (origin) {
+    const { innerWidth: W, innerHeight: H } = window
+    const inset = `inset(${origin.y}px ${W - origin.x - origin.w}px ${H - origin.y - origin.h}px ${origin.x}px round 1.25rem)`
+    tl.fromTo(el, { clipPath: inset }, { clipPath: 'inset(0px 0px 0px 0px round 0rem)', duration: 0.8, ease: 'expo.inOut' }, 0)
+    if (old) tl.to(old, { scale: 0.95, autoAlpha: 0.4, duration: 0.8, ease: 'expo.inOut' }, 0)
+  } else {
+    tl.fromTo(el, { autoAlpha: 0, x: dir * 36 }, { autoAlpha: 1, x: 0, duration: 0.55, ease: 'power3.out' }, 0)
+    if (old) tl.to(old, { autoAlpha: 0, x: -dir * 24, duration: 0.4, ease: 'power2.in' }, 0)
+  }
+  return tl.set(el, { clearProps: 'clipPath,transform,opacity,visibility' })
+}
+
+function createDirector(initialId, setStage) {
   const d = {
     current: initialId,
-    lastPage: isPage(initialId) ? initialId : null,
+    shown: null,
     busy: false,
     queued: null,
     curtain: null,
+    finish() {
+      d.busy = false
+      const next = d.queued
+      d.queued = null
+      if (next) d.run(next)
+    },
     run(location) {
       const to = idFor(location.pathname)
       if (!to) return
@@ -25,29 +52,42 @@ function createDirector(initialId, setShown) {
         d.queued = location
         return
       }
+      const prev = d.shown
       if (to === d.current) {
-        setShown(location)
+        d.shown = location
+        setStage({ cur: location, prev: null })
         return
       }
       d.busy = true
-      // the menu's preview panel is desktop-only, so phones skip decoding its seven photos
-      const desktop = window.matchMedia('(min-width: 64rem) and (orientation: landscape)').matches
-      const ready = decodeImages(to === 'menu' && !desktop ? [] : (ROUTE_IMAGES[to] ?? []))
-      const tl = d.curtain.sweep(
-        direction(d.current, to),
-        () => {
-          setIntroDelay(0.22)
-          d.current = to
-          if (isPage(to)) d.lastPage = to
-          flushSync(() => setShown(location))
-        },
-        ready,
-      )
-      tl.eventCallback('onComplete', () => {
-        d.busy = false
-        const next = d.queued
-        d.queued = null
-        if (next) d.run(next)
+      const from = d.current
+      const dir = direction(from, to)
+      const ready = decodeImages(ROUTE_IMAGES[to] ?? [])
+
+      // the cover is the one place that keeps the full curtain: it opens and closes the app
+      if (from === 'landing' || to === 'landing') {
+        const tl = d.curtain.sweep(
+          dir,
+          () => {
+            setIntroDelay(0.22)
+            d.current = to
+            d.shown = location
+            flushSync(() => setStage({ cur: location, prev: null }))
+          },
+          ready,
+        )
+        tl.eventCallback('onComplete', d.finish)
+        return
+      }
+
+      settled(ready, 350).then(() => {
+        setIntroDelay(location.state?.origin ? 0.35 : 0.1)
+        d.current = to
+        d.shown = location
+        flushSync(() => setStage({ cur: location, prev }))
+        enter(location, prev, dir).eventCallback('onComplete', () => {
+          setStage((s) => (s.cur === location ? { cur: location, prev: null } : s))
+          d.finish()
+        })
       })
     },
   }
@@ -57,32 +97,33 @@ function createDirector(initialId, setShown) {
 export default function Navigator({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [shown, setShown] = useState(location)
+  const [stage, setStage] = useState({ cur: location, prev: null })
   const [tone, setTone] = useState('dark')
   const curtain = useRef(null)
   const director = useRef(null)
 
   useEffect(() => {
-    const d = createDirector(idFor(window.location.pathname) ?? 'landing', setShown)
+    const d = createDirector(idFor(window.location.pathname) ?? 'landing', setStage)
     d.curtain = curtain.current
+    d.shown = location
     director.current = d
-    // warm the likely next screens while the visitor is on the first one
-    const warm = setTimeout(() => ['landing', 'overview'].forEach((r) => decodeImages(ROUTE_IMAGES[r])), 1200)
+    // warm the whole app in the background so every tap after the first feels instant
+    const warm = setTimeout(() => decodeImages(ALL_IMAGES), 1500)
     return () => clearTimeout(warm)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     director.current?.run(location)
   }, [location])
 
-  const route = idFor(shown.pathname) ?? 'landing'
+  const route = idFor(stage.cur.pathname) ?? 'landing'
 
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return
-      const d = director.current
-      if (isPage(d.current)) navigate(pathFor('menu'))
-      else if (d.current === 'menu') navigate(pathFor(d.lastPage ?? 'landing'))
+      const cur = director.current.current
+      if (cur !== 'landing' && cur !== 'home') navigate(pathFor('home'))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -91,13 +132,13 @@ export default function Navigator({ children }) {
   const value = useMemo(
     () => ({
       route,
-      shown,
+      stage,
       tone,
       setTone,
-      go: (id) => navigate(pathFor(id)),
-      lastPage: () => director.current?.lastPage ?? null,
+      // `origin` is the tapped tile's rectangle; the next screen grows out of it
+      go: (id, origin) => navigate(pathFor(id), origin ? { state: { origin } } : undefined),
     }),
-    [route, shown, tone, navigate],
+    [route, stage, tone, navigate],
   )
 
   return (
