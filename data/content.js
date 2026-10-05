@@ -206,28 +206,37 @@ export const AMENITY_LEVELS = [
   },
 ]
 
+/*
+ * Map positions ([lng, lat]) for the Residences 3D map. SITE.at is an approximate plot centre in
+ * Mira Road East: replace it with the surveyed coordinates before launch. Wockhardt Hospital,
+ * GCC Club, the highway, Maxus ("Manus") Mall and RBK School are their OpenStreetMap positions;
+ * the other places are placeholders until their addresses are confirmed.
+ * `heading` turns the ground plan (degrees clockwise) to line it up with the real plot.
+ */
+export const SITE = { name: 'Urban Reserve', at: [72.8712, 19.2752], heading: -8 }
+
 export const LOCATION = {
   heading: 'Never far from home',
   body: 'Surrounded by everyday conveniences, with easy access to schools, hospitals, malls, dining and entertainment, and seamless connectivity to the city through the Western Express Highway.',
   map: img('location-map'),
   rings: [
-    { mins: 5, places: [{ name: 'Rahul International School', type: 'school' }] },
+    { mins: 5, places: [{ name: 'Rahul International School', type: 'school', at: [72.8756, 19.2712] }] },
     {
       mins: 10,
       places: [
-        { name: 'Lifunga Hospital', type: 'hospital' },
-        { name: 'GCC International School', type: 'school' },
-        { name: 'J.P. Mall', type: 'mall' },
+        { name: 'Lifunga Hospital', type: 'hospital', at: [72.8786, 19.2638] },
+        { name: 'GCC International School', type: 'school', at: [72.8846, 19.2768] },
+        { name: 'J.P. Mall', type: 'mall', at: [72.8668, 19.2884] },
       ],
     },
     {
       mins: 15,
       places: [
-        { name: 'Western Express Highway', type: 'road' },
-        { name: 'Manus Mall', type: 'mall' },
-        { name: 'RBK / Kandivka Intl. School', type: 'school' },
-        { name: 'GCC Club', type: 'club' },
-        { name: 'Wockhardt Hospital', type: 'hospital' },
+        { name: 'Western Express Highway', type: 'road', at: [72.8918, 19.285] },
+        { name: 'Manus Mall', type: 'mall', at: [72.8483, 19.2965] },
+        { name: 'RBK / Kandivka Intl. School', type: 'school', at: [72.8716, 19.3022] },
+        { name: 'GCC Club', type: 'club', at: [72.8785, 19.2832] },
+        { name: 'Wockhardt Hospital', type: 'hospital', at: [72.8622, 19.2843] },
       ],
     },
   ],
