@@ -115,7 +115,17 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       overlay.current?.style.setProperty('--fog', clouds ? clouds.fog(pose.eye).toFixed(3) : 0)
     }
 
-    const reserve = createReserve({ places: PLACES, shadows: !lite(), onFrame })
+    // Loading, in weighted parts. The intro starts only once every part is in.
+    const PARTS = { style: 5, tiles: 25, models: 35, light: 15, sky: 15, warm: 5 }
+    const got = {}
+    const progress = (part, f = 1) => {
+      got[part] = Math.max(got[part] ?? 0, f)
+      const sum = Object.entries(PARTS).reduce((s, [k, w]) => s + w * (got[k] ?? 0), 0)
+      const next = Object.keys(PARTS).find((k) => (got[k] ?? 0) < 1) ?? 'ready'
+      reportProgress.current?.(Math.min(1, sum / 100), next)
+    }
+
+    const reserve = createReserve({ places: PLACES, shadows: !lite(), onFrame, onProgress: progress })
     const ground = (at = SITE.at) => map.queryTerrainElevation(at) ?? 0
 
     const placeAnchors = () => {
@@ -226,26 +236,43 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       if (insetRef.current) map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
       const director = createDirector(map)
       live.current = { map, director, goTo, measure, introduced: false }
-      const idle = () => new Promise((r) => map.once('idle', r))
       const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+      const frames = (n) => new Promise((r) => (function f(k) { requestAnimationFrame(() => (k ? f(k - 1) : r())) })(n))
+      // the map has drawn every tile its current view needs
+      const settledView = async () => {
+        await frames(2)
+        if (map.areTilesLoaded() && !map.isMoving()) return
+        await new Promise((r) => map.once('idle', r))
+      }
+      progress('style')
 
-      // load the arrival view under the clouds, then rise above them for the descent
-      await Promise.race([Promise.all([reserve.layer.ready, idle()]), wait(9000)])
+      // Everything under the clouds first: the arrival view's map and terrain, every model, and
+      // the HDRI lighting. Long caps only so a dead network can't hold the page forever.
+      const tiles = settledView().then(() => progress('tiles'))
+      await Promise.race([Promise.all([reserve.layer.ready, reserve.lit, tiles]), wait(30000)])
       if (gone) return
       reserve.settle()
       placeAnchors()
+      // then rise above the clouds and load the start of the descent
       const first = viewFor(stopRef.current)
       if (!reduced()) {
         director.jump({ center: SITE.at, zoom: 13.2, pitch: 14, bearing: first.bearing - 100, elevation: ground() })
-        await Promise.race([idle(), wait(2500)])
+        await Promise.race([settledView(), wait(10000)])
         if (gone) return
       }
+      progress('sky')
+      // compile every shader and draw a few frames before anything is seen
+      await Promise.race([reserve.warm(), wait(4000)])
+      if (gone) return
+      progress('warm')
+
       report.current?.('ready')
       intro = gsap.timeline()
       intro.to(clouds?.params ?? {}, { mist: 0, duration: reduced() ? 0.01 : 2.8, ease: 'power2.out' }, 0)
       intro.add(
         () => {
           live.current.introduced = true
+          director.lean(true)
           goTo(stopRef.current, reduced() ? {} : { duration: 7.2, hop: 0 })
         },
         reduced() ? 0 : 0.3,
