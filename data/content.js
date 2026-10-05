@@ -207,36 +207,47 @@ export const AMENITY_LEVELS = [
 ]
 
 /*
- * Map positions ([lng, lat]) for the Residences 3D map. SITE.at is an approximate plot centre in
- * Mira Road East: replace it with the surveyed coordinates before launch. Wockhardt Hospital,
- * GCC Club, the highway, Maxus ("Manus") Mall and RBK School are their OpenStreetMap positions;
- * the other places are placeholders until their addresses are confirmed.
- * `heading` turns the ground plan (degrees clockwise) to line it up with the real plot.
+ * Map positions for the Residences 3D map, pasted from Google Maps (checked 5 Oct 2026).
+ * To move a pin: right-click the spot on Google Maps, click the coordinates at the top of the menu
+ * to copy them, and paste them into gmaps('…'). Google gives "lat, lng"; the map wants [lng, lat],
+ * so gmaps() flips them.
+ * After moving SITE or any place, re-run `npm run routes` to redraw the roads between them.
  */
-export const SITE = { name: 'Urban Reserve', at: [72.8712, 19.2752], heading: -8 }
+const gmaps = (latLng) => latLng.split(',').map(Number).reverse()
+
+// SITE is still an approximate plot centre: replace it with the plot's own pin.
+// `heading` turns the ground plan (degrees clockwise) to line it up with the real plot.
+export const SITE = { name: 'Urban Reserve', at: gmaps('19.2752, 72.8712'), heading: -8 }
 
 export const LOCATION = {
   heading: 'Never far from home',
   body: 'Surrounded by everyday conveniences, with easy access to schools, hospitals, malls, dining and entertainment, and seamless connectivity to the city through the Western Express Highway.',
   map: img('location-map'),
   rings: [
-    { mins: 5, places: [{ name: 'Rahul International School', type: 'school', at: [72.8756, 19.2712] }] },
+    // LR Tiwari Educational Campus
+    { mins: 5, places: [{ name: 'Rahul International School', type: 'school', at: gmaps('19.2989303, 72.8778045') }] },
     {
       mins: 10,
       places: [
-        { name: 'Lifunga Hospital', type: 'hospital', at: [72.8786, 19.2638] },
-        { name: 'GCC International School', type: 'school', at: [72.8846, 19.2768] },
-        { name: 'J.P. Mall', type: 'mall', at: [72.8668, 19.2884] },
+        // the brochure's "Lifunga Hospital": no such hospital; Thunga Hospital, Mira Bhayander Link Road, is the likely one
+        { name: 'Thunga Hospital', type: 'hospital', at: gmaps('19.2923134, 72.8623979') },
+        // behind GCC Hotel & Club
+        { name: 'GCC International School', type: 'school', at: gmaps('19.2835854, 72.8786167') },
+        // the mall inside JP North, Vinay Nagar Road (Google has no separate pin for the mall)
+        { name: 'J.P. Mall', type: 'mall', at: gmaps('19.2823669, 72.8872654') },
       ],
     },
     {
       mins: 15,
       places: [
-        { name: 'Western Express Highway', type: 'road', at: [72.8918, 19.285] },
-        { name: 'Manus Mall', type: 'mall', at: [72.8483, 19.2965] },
-        { name: 'RBK / Kandivka Intl. School', type: 'school', at: [72.8716, 19.3022] },
-        { name: 'GCC Club', type: 'club', at: [72.8785, 19.2832] },
-        { name: 'Wockhardt Hospital', type: 'hospital', at: [72.8622, 19.2843] },
+        // Kashimira Junction
+        { name: 'Western Express Highway', type: 'road', at: gmaps('19.27266, 72.88303') },
+        // the brochure's "Manus Mall"
+        { name: 'Maxus Mall', type: 'mall', at: gmaps('19.2960705, 72.8487058') },
+        // the brochure's "RBK / Kandivka": RBK School, now Kanakia International School, Beverly Park
+        { name: 'RBK / Kanakia Intl. School', type: 'school', at: gmaps('19.2908651, 72.8717633') },
+        { name: 'GCC Club', type: 'club', at: gmaps('19.28325, 72.8785271') },
+        { name: 'Wockhardt Hospital', type: 'hospital', at: gmaps('19.2842599, 72.8621903') },
       ],
     },
   ],

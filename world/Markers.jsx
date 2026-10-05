@@ -10,11 +10,11 @@ export function Anchor({ id, register, show, children }) {
   )
 }
 
-export function Pin({ place, active, onClick }) {
+export function Pin({ place, active, dim, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group pointer-events-auto relative flex -translate-x-1/2 -translate-y-full flex-col items-center"
+      className={`group pointer-events-auto relative flex -translate-x-1/2 -translate-y-full flex-col items-center transition-opacity duration-700 ${dim ? 'opacity-40 hover:opacity-100' : ''}`}
       aria-label={`${place.name}, ${place.mins} minutes away`}
     >
       <span
@@ -52,6 +52,27 @@ export function Hotspot({ index, label, left, onClick }) {
         {label}
       </span>
     </button>
+  )
+}
+
+// Sits on the middle of the road route to a place.
+export function RouteLabel({ mins, km }) {
+  return (
+    <div className="flex -translate-x-1/2 translate-y-[-130%] items-center gap-2.5 whitespace-nowrap rounded-full border border-white/70 bg-ember py-1.5 pl-2 pr-3.5 text-white shadow-[0_12px_30px_-12px_rgb(120_45_10/0.7)]">
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 16l1.6-5.2A2 2 0 018.5 9.4h7a2 2 0 011.9 1.4L19 16M5 16h14v3H5zM7.5 19v1.5M16.5 19v1.5" />
+      </svg>
+      <span className="font-display text-[1.05rem] italic leading-none">{mins} min</span>
+      <span className="h-3.5 w-px bg-white/45" />
+      <span className="label text-[0.56rem]">{km} km by road</span>
+    </div>
+  )
+}
+
+// Runs along the route from the reserve, so the way reads at a glance.
+export function Traveller() {
+  return (
+    <span className="relative block size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-ember shadow-[0_0_0_6px_rgb(224_112_42/0.25),0_0_18px_4px_rgb(224_112_42/0.55)]" />
   )
 }
 

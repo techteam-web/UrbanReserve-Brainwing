@@ -109,8 +109,9 @@ export function podiumMap({ floor }) {
   return t
 }
 
-// A dusk sky for reflections: teal zenith, amber horizon, dark forest ground and a low sun.
-export function duskEnvironment(renderer, sunDir) {
+// A plain daylight sky, used for reflections until the HDRI has loaded. It is built the HDRI's way
+// (y up, sun where the HDRI's sun is) so the same environment rotation suits both.
+export function skyEnvironment(renderer, sunDir) {
   const scene = new THREE.Scene()
   const geo = new THREE.SphereGeometry(10, 48, 24)
   const mat = new THREE.ShaderMaterial({
@@ -122,13 +123,13 @@ export function duskEnvironment(renderer, sunDir) {
       uniform vec3 uSun;
       void main() {
         vec3 d = normalize(vDir);
-        float h = d.z;
-        vec3 zenith = vec3(0.07, 0.2, 0.26);
-        vec3 horizon = vec3(0.95, 0.66, 0.42);
-        vec3 ground = vec3(0.05, 0.12, 0.09);
-        vec3 col = h > 0.0 ? mix(horizon, zenith, pow(h, 0.45)) : mix(horizon * 0.5, ground, pow(-h, 0.35));
+        float h = d.y;
+        vec3 zenith = vec3(0.32, 0.55, 0.82);
+        vec3 horizon = vec3(0.9, 0.92, 0.9);
+        vec3 ground = vec3(0.3, 0.36, 0.28);
+        vec3 col = h > 0.0 ? mix(horizon, zenith, pow(h, 0.5)) : mix(horizon * 0.6, ground, pow(-h, 0.35));
         float s = max(dot(d, uSun), 0.0);
-        col += vec3(1.0, 0.75, 0.45) * (pow(s, 600.0) * 18.0 + pow(s, 12.0) * 0.6);
+        col += vec3(1.0, 0.92, 0.8) * (pow(s, 600.0) * 12.0 + pow(s, 16.0) * 0.4);
         gl_FragColor = vec4(col, 1.0);
       }`,
   })

@@ -80,6 +80,7 @@ function HomesList({ stop, onStop }) {
 
 function PlacesList({ stop, onStop }) {
   let k = 0
+  const byName = Object.fromEntries(PLACES.map((p) => [p.name, p]))
   return (
     <div>
       <Row tight on={stop === 'neighbourhood'} onClick={() => onStop('neighbourhood')}>
@@ -95,7 +96,8 @@ function PlacesList({ stop, onStop }) {
       {LOCATION.rings.map((ring) => (
         <div key={ring.mins}>
           <p className="mt-[1.1vh] font-display text-[clamp(0.9rem,1.9vh,1.15rem)] italic text-gold-lit">{ring.mins} min</p>
-          {ring.places.map((p) => {
+          {ring.places.map(({ name }) => {
+            const p = byName[name]
             const id = `place-${k++}`
             return (
               <Row key={id} tight on={stop === id} onClick={() => onStop(id)}>
@@ -103,6 +105,7 @@ function PlacesList({ stop, onStop }) {
                   <Icon name={p.type} className="size-3" />
                 </span>
                 <span className="truncate text-[clamp(0.82rem,1.65vh,1rem)] tracking-wide">{p.name}</span>
+                {p.route && <span className="ml-auto shrink-0 text-[0.7rem] tabular-nums text-ivory/40">{p.route.km} km</span>}
               </Row>
             )
           })}
@@ -230,10 +233,24 @@ function Detail({ stop, onStop, onPhoto, onPlan, go }) {
           <p className="eyebrow text-gold-lit">{TYPE[p.type]}</p>
         </div>
         <h3 data-swap className="display mt-[1.8vh] text-[clamp(1.35rem,3.1vh,2.1rem)] font-normal">{p.name}</h3>
-        <p data-swap className="mt-[1.6vh] flex items-baseline gap-3">
-          <span className="font-display text-[clamp(3rem,8vh,5rem)] italic leading-none text-gold-lit">{p.mins}</span>
-          <span className="label text-[0.6rem] text-ivory/60">min from Urban Reserve</span>
-        </p>
+        <div data-swap className="mt-[1.6vh] flex items-end gap-[1.6vw]">
+          <p className="flex items-baseline gap-2.5">
+            <span className="font-display text-[clamp(3rem,8vh,5rem)] italic leading-none text-gold-lit">{p.mins}</span>
+            <span className="label text-[0.6rem] text-ivory/60">min drive</span>
+          </p>
+          {p.route && (
+            <p className="flex items-baseline gap-2.5 border-l border-ivory/15 pl-[1.6vw]">
+              <span className="font-display text-[clamp(2rem,5vh,3.2rem)] leading-none text-ivory">{p.route.km}</span>
+              <span className="label text-[0.6rem] text-ivory/60">km by road</span>
+            </p>
+          )}
+        </div>
+        {p.route?.via && (
+          <p data-swap className="mt-[1.4vh] flex items-center gap-2 text-[clamp(0.78rem,1.55vh,0.92rem)] text-ivory/60">
+            <span className="h-0.5 w-5 rounded-full bg-ember" />
+            From Urban Reserve via {p.route.via}
+          </p>
+        )}
         {near.length > 0 && (
           <div data-swap className="mt-[2.4vh]">
             <p className="label text-[0.56rem] text-ivory/45">Also within {p.mins} min</p>
@@ -289,21 +306,11 @@ function Detail({ stop, onStop, onPhoto, onPlan, go }) {
   )
 }
 
-function Compass() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 5.5l2.2 6.5L12 18.5 9.8 12z" fill="currentColor" fillOpacity="0.35" />
-    </svg>
-  )
-}
-
 export default function Residences() {
   const root = useRef(null)
   const { go } = useNav()
   const [stop, setStop] = useState('reserve')
   const [world, setWorld] = useState('loading')
-  const [replay, setReplay] = useState(0)
   const [photos, setPhotos] = useState(null)
   const close = useCallback(() => setPhotos(null), [])
   // The entrance waits behind the clouds until the world is ready, then plays with its descent.
@@ -319,7 +326,8 @@ export default function Residences() {
   useEffect(() => {
     if (world !== 'loading') setCovered('world', false)
   }, [world])
-  useTone(world === 'loading' ? 'light' : 'dark')
+  // the left of the chrome sits on the rail's shade, the right on the bright map
+  useTone(world === 'loading' ? 'light' : ['dark', 'light'])
   useIntro(root)
 
   const stacked = useSyncExternalStore(subscribe, () => window.matchMedia(STACKED).matches)
@@ -344,16 +352,14 @@ export default function Residences() {
         </div>
       ) : (
         <Suspense fallback={null}>
-          <World stop={stop} replay={replay} inset={stacked ? STACKED_INSET : null} onStop={setStop} onState={setWorld} />
+          <World stop={stop} inset={stacked ? STACKED_INSET : null} onStop={setStop} onState={setWorld} />
         </Suspense>
       )}
 
-      {/* legibility scrims over the world */}
+      {/* shade behind the rail, so its text reads over the bright map */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${world === 'loading' ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="absolute inset-y-0 left-0 w-[46%] bg-[linear-gradient(90deg,rgb(9_27_21/0.9),rgb(9_27_21/0.62)_45%,transparent)] max-lg:hidden" />
-        <div className="absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(9_27_21/0.45),transparent)] max-lg:hidden" />
-        <div className="absolute inset-x-0 top-0 h-[20vh] bg-linear-to-b from-forest-950/75 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-[18vh] bg-linear-to-t from-forest-950/80 to-transparent" />
+        <div className="absolute inset-y-0 left-0 w-[42%] bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.6)_48%,transparent)] max-lg:hidden" />
+        <div className="absolute inset-x-0 top-0 h-[16vh] bg-linear-to-b from-forest-950/45 to-transparent lg:hidden" />
       </div>
 
       {/* arriving */}
@@ -404,21 +410,6 @@ export default function Residences() {
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
             <Swap id={stop}>{detail}</Swap>
           </div>
-        </div>
-      </div>
-
-      {/* desktop hud */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-[calc(var(--chrome-bot)+1.2vh)] hidden justify-center lg:flex">
-        <div data-in className="pointer-events-auto flex items-center gap-3 rounded-full border border-ivory/10 bg-forest-950/55 py-1.5 pl-5 pr-1.5 backdrop-blur-md">
-          <span className="label text-[0.56rem] text-ivory/60">Drag to move · Right-drag to orbit · Scroll to zoom</span>
-          <button
-            onClick={() => setReplay((n) => n + 1)}
-            className="grid size-8 place-items-center rounded-full border border-gold/50 text-gold transition-colors duration-500 hover:bg-gold hover:text-forest-950"
-            aria-label="Recentre the view"
-            title="Recentre"
-          >
-            <Compass />
-          </button>
         </div>
       </div>
 

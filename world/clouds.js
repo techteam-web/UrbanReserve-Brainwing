@@ -174,7 +174,7 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
       gl.uniformMatrix4fv(u.uInv, false, inv)
       gl.uniform3f(u.uEye, pose.eye.x, pose.eye.y, pose.eye.z)
       gl.uniform1f(u.uTime, pose.time)
-      gl.uniform3f(u.uSun, sun.x, sun.y, sun.z)
+      gl.uniform3f(u.uSun, ...sun)
       gl.uniform4f(u.uA, ...vec(params.a))
       gl.uniform4f(u.uB, ...vec(params.b))
       gl.uniform1f(u.uMist, params.mist)

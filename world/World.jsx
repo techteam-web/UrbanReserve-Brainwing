@@ -3,25 +3,28 @@ import { Map as MapLibre } from './maplibre'
 import { gsap, reduced, lite } from '../gsap/gsapConfig'
 import { holdIntro } from '../app/gate'
 import { RESIDENCES, SITE } from '../data/content'
-import { mapStyle } from './style'
-import { createReserve, SUN } from './scene'
+import { mapStyle, ROUTE_LAYERS, routeReveal } from './style'
+import { createReserve } from './scene'
 import { createClouds } from './clouds'
 import { createDirector } from './camera'
+import { SUN } from './light'
+import { toLocal } from './geo'
 import { HOTSPOTS, PLACES, VIEWS, isHood, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
 import { TOWER_H } from './site'
-import { Anchor, Badge, Hotspot, Pin } from './Markers'
+import { Anchor, Badge, Hotspot, Pin, RouteLabel, Traveller } from './Markers'
 
 const LABELS = Object.fromEntries([...RESIDENCES.map((r, i) => [r.id, [i + 2, r.label]]), ['interiors', [5, 'Interiors']]])
 
-
 /**
  * The Residences world: a MapLibre map with the reserve rendered in three.js, clouds over it and
- * labels floating in the scene. `stop` picks the camera view; clicks on the scene call `onStop`.
- * Changing `replay` flies back to the current stop. `inset` ({ top, bottom } as fractions of the
- * height) keeps the subject clear of UI covering the map. `onState` reports 'ready' when the
- * intro starts or 'failed' if WebGL is unavailable.
+ * labels floating in the scene. The camera is never handed to the visitor: `stop` picks the view
+ * and clicks on the scene call `onStop`. Places show their road route from the reserve.
+ * `inset` ({ top, bottom } as fractions of the height) keeps the subject clear of UI covering the
+ * map. Nothing is shown until the whole scene is in: `onProgress(fraction, next)` reports loading
+ * (`next` names what is still coming), and `onState` reports 'ready' when everything has loaded
+ * and the intro starts, or 'failed' if WebGL is unavailable.
  */
-export default function World({ stop, replay, inset, onStop, onState }) {
+export default function World({ stop, inset, onStop, onState, onProgress }) {
   const host = useRef(null)
   const overlay = useRef(null)
   const veil = useRef(null)
@@ -30,9 +33,11 @@ export default function World({ stop, replay, inset, onStop, onState }) {
   const live = useRef(null)
   const stopRef = useRef(stop)
   const report = useRef(onState)
+  const reportProgress = useRef(onProgress)
   const insetRef = useRef(inset)
   useLayoutEffect(() => {
     report.current = onState
+    reportProgress.current = onProgress
     insetRef.current = inset
   })
 
@@ -51,8 +56,7 @@ export default function World({ stop, replay, inset, onStop, onState }) {
         zoom: VIEWS.reserve.zoom,
         pitch: VIEWS.reserve.pitch,
         bearing: VIEWS.reserve.bearing,
-        minZoom: 11.5,
-        maxZoom: 19.4,
+        interactive: false,
         maxPitch: 82,
         centerClampedToGround: false,
         pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
@@ -80,6 +84,9 @@ export default function World({ stop, replay, inset, onStop, onState }) {
     measure()
     map.on('resize', measure)
 
+    // the drive on show: the route in scene metres, with running lengths for the traveller
+    const route = { track: null, reveal: { p: 0 }, tween: null }
+
     // project the floating labels with the exact camera the scene was drawn with
     let drawn = false
     const onFrame = (pose) => {
@@ -88,6 +95,7 @@ export default function World({ stop, replay, inset, onStop, onState }) {
         drawn = true
         veil.current?.classList.add('opacity-0')
       }
+      if (route.track && route.reveal.p >= 1) anchors.current.set('traveller', along(route.track, ((pose.time % 6) / 5) * route.track.len))
       const e = pose.clip.elements
       const [W, H] = size
       for (const [id, el] of els.current) {
@@ -117,21 +125,23 @@ export default function World({ stop, replay, inset, onStop, onState }) {
     }
     placeAnchors()
 
+    function fit(bounds, bearing, pitch) {
+      const { width, height } = map.getContainer().getBoundingClientRect()
+      // leave room for the rail and the card either side (stacked layouts are padded already)
+      const side = width * (insetRef.current ? 0.06 : 0.3)
+      const cam = map.cameraForBounds(bounds, { bearing, padding: { top: height * 0.18, bottom: height * 0.14, left: side, right: side } })
+      const c = cam?.center
+      // a tilted camera sees more ground than the flat fit assumes; ease back a little
+      return { center: c ? [c.lng ?? c[0], c.lat ?? c[1]] : SITE.at, zoom: (cam?.zoom ?? 14) - pitch / 140, pitch, bearing, fitted: true }
+    }
+
     function viewFor(id) {
-      if (id === 'neighbourhood') {
-        const bearing = SITE.heading - 14
-        const { width, height } = map.getContainer().getBoundingClientRect()
-        // leave room for the rail and the card either side (stacked layouts are padded already)
-        const side = width * (insetRef.current ? 0.06 : 0.3)
-        const cam = map.cameraForBounds(neighbourhoodBounds(), {
-          bearing,
-          padding: { top: height * 0.16, bottom: height * 0.12, left: side, right: side },
-        })
-        const c = cam?.center
-        return { center: c ? [c.lng ?? c[0], c.lat ?? c[1]] : SITE.at, zoom: (cam?.zoom ?? 14) - 0.15, pitch: 46, bearing, lift: 0, orbit: 0.7, fitted: true }
-      }
+      if (id === 'neighbourhood') return { ...fit(neighbourhoodBounds(), SITE.heading - 14, 46), lift: 0, orbit: 0 }
       const i = placeIndex(id)
-      if (i >= 0) return placeView(PLACES[i])
+      if (i >= 0) {
+        const v = placeView(PLACES[i])
+        return { ...v, ...fit(v.bounds, v.bearing, v.pitch) }
+      }
       return VIEWS[id] ?? VIEWS.reserve
     }
 
@@ -142,9 +152,8 @@ export default function World({ stop, replay, inset, onStop, onState }) {
      */
     function framed(v) {
       const { clientWidth: W, clientHeight: H } = map.getContainer()
-      if (v.fitted) return v
       const { top = 0, bottom = 0 } = insetRef.current ?? {}
-      let zoom = v.zoom + Math.log2(Math.min((H * (1 - top - bottom)) / 1080, W / 900))
+      let zoom = v.fitted ? v.zoom : v.zoom + Math.log2(Math.min((H * (1 - top - bottom)) / 1080, W / 900))
       const k = (1.5 * H * 40075016.686 * Math.cos((v.center[1] * Math.PI) / 180) * Math.cos((v.pitch * Math.PI) / 180)) / 512
       const altAt = (z) => k / 2 ** z + v.lift // above the ground at the stop
       const zoomAt = (alt) => Math.log2(k / Math.max(1, alt - v.lift))
@@ -155,12 +164,44 @@ export default function World({ stop, replay, inset, onStop, onState }) {
       return { ...v, zoom }
     }
 
+    // Shows every road in the neighbourhood overview, or draws the chosen one out from the reserve.
+    function showRoutes(hood, i) {
+      const all = hood ? (i >= 0 ? 0.25 : 0.85) : 0
+      map.setPaintProperty('routes', 'line-opacity', all)
+      map.setPaintProperty('routes-casing', 'line-opacity', all * 0.9)
+      for (const id of ROUTE_LAYERS.active) map.setFilter(id, ['==', ['get', 'i'], i])
+      route.tween?.kill()
+      route.reveal.p = 0
+      map.setPaintProperty('route-active', 'line-gradient', routeReveal(0))
+      const path = PLACES[i]?.route?.path
+      route.track = path ? trackOf(path) : null
+      anchors.current.delete('traveller')
+      if (!route.track) return
+      anchors.current.set('route-label', along(route.track, route.track.len * 0.5, 0))
+      route.tween = gsap.to(route.reveal, {
+        p: 1,
+        duration: reduced() ? 0.01 : 2.4,
+        delay: reduced() ? 0 : 1.2,
+        ease: 'power2.inOut',
+        onUpdate: () => map.setPaintProperty('route-active', 'line-gradient', routeReveal(route.reveal.p)),
+      })
+    }
+
+    // A route in scene metres, sat on the terrain, with running lengths along it.
+    function trackOf(path) {
+      const pts = path.map((at) => [...toLocal(SITE.at, at), reserve.groundAt(at)])
+      const cum = [0]
+      for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]))
+      return { pts, cum, len: cum.at(-1) }
+    }
+
     function goTo(id, opts = {}) {
       const hood = isHood(id)
       const i = placeIndex(id)
       reserve.setHighlight(id in VIEWS && id !== 'reserve')
-      reserve.setNeighbourhood(hood)
+      reserve.setBeacon(hood)
       reserve.setLandmark(i)
+      showRoutes(hood, i)
       if (clouds) {
         gsap.to(clouds.params.a, { cover: hood ? 0.42 : 0.5, duration: 3, overwrite: true })
         gsap.to(clouds.params.b, { cover: hood ? 0.5 : 0.56, duration: 3, overwrite: true })
@@ -195,7 +236,7 @@ export default function World({ stop, replay, inset, onStop, onState }) {
       placeAnchors()
       const first = viewFor(stopRef.current)
       if (!reduced()) {
-        map.jumpTo({ center: SITE.at, zoom: 13.2, pitch: 14, bearing: first.bearing - 100, roll: 0, elevation: ground() })
+        director.jump({ center: SITE.at, zoom: 13.2, pitch: 14, bearing: first.bearing - 100, elevation: ground() })
         await Promise.race([idle(), wait(2500)])
         if (gone) return
       }
@@ -219,6 +260,7 @@ export default function World({ stop, replay, inset, onStop, onState }) {
     return () => {
       gone = true
       intro?.kill()
+      route.tween?.kill()
       if (clouds) gsap.killTweensOf([clouds.params, clouds.params.a, clouds.params.b])
       live.current?.director.dispose()
       live.current = null
@@ -234,15 +276,12 @@ export default function World({ stop, replay, inset, onStop, onState }) {
   }, [stop])
 
   useEffect(() => {
-    if (replay && live.current?.introduced) live.current.goTo(stopRef.current)
-  }, [replay])
-
-  useEffect(() => {
     live.current?.measure()
   }, [inset])
 
   const hood = isHood(stop)
   const active = placeIndex(stop)
+  const drive = PLACES[active]
 
   return (
     <div className="absolute inset-0">
@@ -251,6 +290,12 @@ export default function World({ stop, replay, inset, onStop, onState }) {
       {/* cloud-coloured until the first frame of real clouds is drawn */}
       <div ref={veil} className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,#f1e9de,#d8d3c9_55%,#aeb3ab)] transition-opacity duration-1000" />
       <div ref={overlay} className="pointer-events-none absolute inset-0 overflow-hidden">
+        <Anchor id="route-label" register={register} show={Boolean(drive?.route)}>
+          {drive?.route && <RouteLabel mins={drive.mins} km={drive.route.km} />}
+        </Anchor>
+        <Anchor id="traveller" register={register} show={Boolean(drive?.route)}>
+          <Traveller />
+        </Anchor>
         <Anchor id="badge" register={register} show={hood}>
           <Badge />
         </Anchor>
@@ -261,10 +306,20 @@ export default function World({ stop, replay, inset, onStop, onState }) {
         ))}
         {PLACES.map((p, i) => (
           <Anchor key={p.name} id={`place-${i}`} register={register} show={hood}>
-            <Pin place={p} active={active === i} onClick={() => onStop(`place-${i}`)} />
+            <Pin place={p} active={active === i} dim={active >= 0 && active !== i} onClick={() => onStop(`place-${i}`)} />
           </Anchor>
         ))}
       </div>
     </div>
   )
+}
+
+// The point `s` metres along a track, lifted `up` metres off the road.
+function along({ pts, cum }, s, up = 2) {
+  let k = 1
+  while (k < pts.length - 1 && cum[k] < s) k++
+  const span = cum[k] - cum[k - 1] || 1
+  const t = Math.min(1, Math.max(0, (s - cum[k - 1]) / span))
+  const [a, b] = [pts[k - 1], pts[k]]
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t + up]
 }
