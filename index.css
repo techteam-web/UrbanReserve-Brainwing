@@ -1,0 +1,223 @@
+@import 'tailwindcss';
+
+/* The split "desktop" layouts need a landscape viewport; portrait tablets get the stacked layout. */
+@custom-variant lg (@media (width >= 64rem) and (orientation: landscape));
+
+@theme {
+  --color-forest-950: #0d231d;
+  --color-forest-900: #143429;
+  --color-forest-800: #1c4436;
+  --color-forest-700: #2f5d52;
+  --color-forest-600: #3f6f62;
+  --color-forest-400: #7d9e91;
+  --color-ember: #e0702a;
+  --color-ember-deep: #c2571b;
+  --color-sun: #cf5327;
+  --color-gold: #c9a35a;
+  --color-gold-lit: #e6c983;
+  --color-gold-deep: #9c7a3c;
+  --color-sand: #c68f5b;
+  --color-sand-deep: #a9723f;
+  --color-paper: #f1ede6;
+  --color-paper-deep: #e4ddd1;
+  --color-ivory: #faf7f2;
+  --color-ink: #1c2622;
+
+  --font-display: 'Cormorant Garamond', 'Times New Roman', serif;
+  --font-sans: 'Jost', system-ui, sans-serif;
+
+  /* 3xl is the design reference (1920×1080); 4xl = 2560×1440, 5xl = 3840×2160 */
+  --breakpoint-3xl: 120rem;
+  --breakpoint-4xl: 160rem;
+  --breakpoint-5xl: 240rem;
+}
+
+:root {
+  --chrome-top: clamp(4.25rem, 9vh, 5.75rem);
+  --chrome-bot: clamp(3.75rem, 8vh, 5rem);
+  --gutter: clamp(1.25rem, 4vw, 4.5rem);
+  --mx: 0;
+  --my: 0;
+}
+
+/*
+ * Desktop scales as one canvas: 1rem is 16px at 1920×1080 and grows or shrinks with the
+ * viewport's limiting side, so 2560×1440 and 3840×2160 show the identical composition, only
+ * larger. The 11px floor keeps small laptops readable. Media queries still use 16px rems.
+ */
+@media (width >= 64rem) and (orientation: landscape) {
+  html {
+    font-size: max(11px, min(100vw / 120, 100vh / 67.5));
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-weight: 300;
+    color: var(--color-ink);
+    background: var(--color-forest-950);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button {
+    cursor: pointer;
+  }
+  img {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  ::selection {
+    background: var(--color-ember);
+    color: #fff;
+  }
+}
+
+@layer components {
+  .screen {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  .safe {
+    padding: var(--chrome-top) var(--gutter) var(--chrome-bot);
+  }
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: max(0.7rem, 9.5px);
+    font-weight: 500;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+  }
+  .display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    text-transform: uppercase;
+    line-height: 1.02;
+    letter-spacing: 0.02em;
+  }
+  .label {
+    font-size: max(0.68rem, 9.5px);
+    font-weight: 500;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+  }
+  .copy {
+    font-size: max(12.5px, clamp(0.9rem, 0.4vw + 1.6vh, 1.12rem));
+    line-height: 1.7;
+  }
+  .btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    overflow: hidden;
+    border: 1px solid currentColor;
+    padding: 0.95rem 1.9rem;
+    font-size: max(0.7rem, 9.5px);
+    font-weight: 500;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    isolation: isolate;
+    transition: color 0.5s var(--ease-out-soft, ease);
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--btn-fill, var(--color-gold));
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .btn:hover::before {
+    transform: scaleY(1);
+  }
+  .btn:hover {
+    color: var(--btn-ink, var(--color-forest-950));
+  }
+  .btn-solid {
+    border-color: var(--color-ember);
+    background: var(--color-ember);
+    color: #fff;
+    --btn-fill: var(--color-ember-deep);
+    --btn-ink: #fff;
+  }
+
+  /* cursor-driven drift; `translate` stays independent of GSAP's `transform` */
+  .drift {
+    translate: calc(var(--mx) * var(--d, 12) * 0.0625rem) calc(var(--my) * var(--d, 12) * 0.0625rem);
+    will-change: translate;
+  }
+
+  .grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  [data-brand] svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* Phones can't fit every page, so the content pane scrolls and fades out under the chrome bars. */
+  @media not ((width >= 64rem) and (orientation: landscape)) {
+    .pane {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: none;
+      mask-image: linear-gradient(
+        to bottom,
+        transparent calc(var(--chrome-top) - 0.5rem),
+        #000 calc(var(--chrome-top) + 1rem),
+        #000 calc(100% - var(--chrome-bot) - 1rem),
+        transparent calc(100% - var(--chrome-bot) + 0.5rem)
+      );
+    }
+  }
+}
+
+/* Fullscreen gate motion is CSS-only: GSAP's global timeline is paused while it shows. */
+.gate-in > * {
+  animation: gate-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.gate-in > :nth-child(2) { animation-delay: 0.15s; }
+.gate-in > :nth-child(3) { animation-delay: 0.25s; }
+.gate-in > :nth-child(4) { animation-delay: 0.4s; }
+.gate-in > :nth-child(5) { animation-delay: 0.55s; }
+.gate-ring {
+  stroke-dasharray: 100;
+  animation: gate-ring 2.4s cubic-bezier(0.65, 0, 0.35, 1) 0.2s both, gate-breathe 3.6s ease-in-out 2.6s infinite;
+}
+.gate:hover .btn::before {
+  transform: scaleY(1);
+}
+@keyframes gate-rise {
+  from { opacity: 0; transform: translateY(1.75rem); }
+}
+@keyframes gate-ring {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes gate-breathe {
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-in > *,
+  .gate-ring {
+    animation: none;
+  }
+  .drift {
+    translate: none;
+  }
+}
