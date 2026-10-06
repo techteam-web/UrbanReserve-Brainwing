@@ -22,6 +22,7 @@ uniform vec4 uB;
 uniform float uMist;  // extra cover (intro, loading)
 uniform vec3 uHaze;
 uniform float uClear; // how far the clouds part in front of the subject
+uniform vec3 uFlow;   // where the camera is heading on screen (ndc), and how far it has flown in
 
 vec3 centre;          // the ray through the middle of the screen
 
@@ -58,7 +59,7 @@ vec4 deck(vec3 ro, vec3 rd, vec4 L, vec2 wind, out float t) {
   float d = density(p, L, wind);
   // part the deck where the middle of the view passes through it
   float tc = (L.x - ro.z) / centre.z;
-  if (tc > 0.0 && uMist < 0.5) {
+  if (tc > 0.0 && uMist < 0.5 && uClear > 0.0) {
     float r = tc * uClear;
     d *= smoothstep(r * 0.3, r, distance(p, ro.xy + centre.xy * tc));
   }
@@ -107,7 +108,14 @@ void main() {
   float inB = (1.0 - smoothstep(0.0, uB.y, abs(ro.z - uB.x))) * min(1.0, uB.z * 1.9);
   float fog = clamp(max(inA, inB) + uMist, 0.0, 1.0);
   if (fog > 0.001) {
-    float n = fbm(vNdc * vec2(1.4, 0.9) * 1.6 + vec2(uTime * 0.04, ro.z * 0.0035), 5);
+    // Wisps stream out from where the camera is heading: two scales of the same noise grow as it
+    // flies in, crossfaded (at constant contrast) so the stream never runs out.
+    vec2 q = (vNdc - uFlow.xy) * vec2(1.4, 0.9) * 1.6;
+    vec2 drift = vec2(uTime * 0.04, 0.0);
+    float f = fract(uFlow.z);
+    float n0 = fbm(q * exp2(1.0 - f) + drift, 5) - 0.5;
+    float n1 = fbm(q * exp2(2.0 - f) + drift, 5) - 0.5;
+    float n = 0.5 + ((1.0 - f) * n0 + f * n1) / sqrt((1.0 - f) * (1.0 - f) + f * f);
     float fa = clamp(fog * (0.55 + 0.75 * n) + fog * fog * 0.4, 0.0, 1.0);
     vec3 fc = mix(vec3(0.78, 0.8, 0.8), vec3(1.0, 0.93, 0.85), n);
     c = vec4(fc * fa, fa) + c * (1.0 - fa);
@@ -135,8 +143,46 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buf)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
   const loc = gl.getAttribLocation(prog, 'aPos')
-  const u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uClear'].map((n) => [n, gl.getUniformLocation(prog, n)]))
+  const u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uClear', 'uFlow'].map((n) => [n, gl.getUniformLocation(prog, n)]))
   const inv = new Float32Array(16)
+
+  /*
+   * The in-cloud stream: how far the camera has flown into the view (in doublings of the wisps'
+   * size, plus a slow drift so cloud never hangs still) and the point on screen it is heading
+   * for, eased so turns don't jerk the stream around.
+   */
+  const flow = { x: 0, y: 0, phase: 0, eye: null, time: 0 }
+  function track({ eye, inverse, clip, time }) {
+    const dt = Math.min(0.1, Math.max(0, time - flow.time))
+    flow.time = time
+    flow.phase += dt * 0.12
+    const last = flow.eye
+    flow.eye = [eye.x, eye.y, eye.z]
+    if (!last) return
+    const d = [eye.x - last[0], eye.y - last[1], eye.z - last[2]]
+    const len = Math.hypot(...d)
+    // standing still, or a cut
+    if (len < 0.01 || len > 3000) return
+    const i = inverse.elements
+    const at = (z) => {
+      const w = i[11] * z + i[15]
+      return [(i[8] * z + i[12]) / w, (i[9] * z + i[13]) / w, (i[10] * z + i[14]) / w]
+    }
+    const [n, f] = [at(-1), at(1)]
+    const view = [f[0] - n[0], f[1] - n[1], f[2] - n[2]]
+    const ahead = (d[0] * view[0] + d[1] * view[1] + d[2] * view[2]) / Math.hypot(...view)
+    flow.phase += ahead / 500
+    // flying backwards, the stream closes in on the point it is leaving
+    const s = ((ahead < 0 ? -1 : 1) * 1000) / len
+    const p = [eye.x + d[0] * s, eye.y + d[1] * s, eye.z + d[2] * s]
+    const c = clip.elements
+    const w = c[3] * p[0] + c[7] * p[1] + c[11] * p[2] + c[15]
+    if (w <= 0) return
+    const clamp = (v) => Math.min(1.5, Math.max(-1.5, v))
+    const k = Math.min(1, dt * 4)
+    flow.x += (clamp((c[0] * p[0] + c[4] * p[1] + c[8] * p[2] + c[12]) / w) - flow.x) * k
+    flow.y += (clamp((c[1] * p[0] + c[5] * p[1] + c[9] * p[2] + c[13]) / w) - flow.y) * k
+  }
 
   // decks: altitude and half-thickness (m), coverage 0..1, feature size (m)
   const params = {
@@ -168,6 +214,9 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
     },
     draw(pose, sun) {
       resize()
+      track(pose)
+      // only its fraction shows, and a small number keeps its precision
+      flow.phase -= Math.floor(flow.phase)
       gl.viewport(0, 0, canvas.width, canvas.height)
       gl.useProgram(prog)
       pose.inverse.elements.forEach((v, i) => (inv[i] = v))
@@ -180,6 +229,7 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
       gl.uniform1f(u.uMist, params.mist)
       gl.uniform3f(u.uHaze, ...params.haze)
       gl.uniform1f(u.uClear, params.clear)
+      gl.uniform3f(u.uFlow, flow.x, flow.y, flow.phase)
       gl.bindBuffer(gl.ARRAY_BUFFER, buf)
       gl.enableVertexAttribArray(loc)
       gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)

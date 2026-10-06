@@ -6,7 +6,7 @@ import { RESIDENCES, SITE } from '../data/content'
 import { mapStyle, ROUTE_LAYERS, routeReveal } from './style'
 import { createReserve } from './scene'
 import { createClouds } from './clouds'
-import { createDirector } from './camera'
+import { createDirector, heightScale } from './camera'
 import { SUN } from './light'
 import { toLocal } from './geo'
 import { HOTSPOTS, PLACES, VIEWS, isHood, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
@@ -15,14 +15,23 @@ import { Anchor, Badge, Hotspot, Pin, RouteLabel, Traveller } from './Markers'
 
 const LABELS = Object.fromEntries([...RESIDENCES.map((r, i) => [r.id, [i + 2, r.label]]), ['interiors', [5, 'Interiors']]])
 
+/*
+ * The way in, from high above the clouds: where the camera starts (metres above the reserve,
+ * pitch, and how far round from the first stop's bearing), the high deck while it comes through
+ * (deeper than at rest, so the camera spends longer in it) and its dive through it (see the
+ * director's `descend`).
+ */
+const ENTRANCE = { height: 7000, pitch: 45, turn: 90, duration: 8, deck: { half: 850 }, dive: { at: 0.42, pitch: 32, linger: 1.3 } }
+
 /**
  * The Residences world: a MapLibre map with the reserve rendered in three.js, clouds over it and
  * labels floating in the scene. The camera is never handed to the visitor: `stop` picks the view
  * and clicks on the scene call `onStop`. Places show their road route from the reserve.
  * `inset` ({ top, bottom } as fractions of the height) keeps the subject clear of UI covering the
  * map. Nothing is shown until the whole scene is in: `onProgress(fraction, next)` reports loading
- * (`next` names what is still coming), and `onState` reports 'ready' when everything has loaded
- * and the intro starts, or 'failed' if WebGL is unavailable.
+ * (`next` names what is still coming). `onState` reports 'clouds' when everything has loaded and
+ * the descent through the clouds starts, 'ready' once the camera is through them (the page's own
+ * entrance can play), or 'failed' if WebGL is unavailable.
  */
 export default function World({ stop, inset, onStop, onState, onProgress }) {
   const host = useRef(null)
@@ -86,8 +95,11 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
     measure()
     map.on('resize', measure)
 
-    // the drive on show: the route in scene metres, with running lengths for the traveller
-    const route = { track: null, reveal: { p: 0 }, tween: null }
+    // The drive on show: the route in scene metres (with running lengths), its middle for the
+    // label, and when the traveller set off along it.
+    const route = { track: null, mid: null, reveal: { p: 0 }, tween: null, since: null }
+    // the entrance's cues as the camera comes down through the clouds: [height, fn], highest first
+    const cues = []
 
     // project the floating labels with the exact camera the scene was drawn with
     let drawn = false
@@ -97,15 +109,29 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
         drawn = true
         veil.current?.classList.add('opacity-0')
       }
-      if (route.track && route.reveal.p >= 1) anchors.current.set('traveller', along(route.track, ((pose.time % 6) / 5) * route.track.len))
+      while (cues.length && pose.eye.z < cues[0][0]) cues.shift()[1]()
+      if (route.track) {
+        // the time and distance show once the line has drawn out to them
+        anchors.current.set('route-label', [...route.mid, unit((route.reveal.p - 0.4) / 0.2)])
+        if (route.reveal.p >= 1) {
+          // then the traveller runs it from the reserve, again and again, fading in and out at the ends
+          route.since ??= pose.time
+          const t = (pose.time - route.since) % 6
+          anchors.current.set('traveller', [...along(route.track, (t / 5) * route.track.len), unit(Math.min(t / 0.4, (6 - t) / 0.5))])
+        }
+      }
       const e = pose.clip.elements
       const [W, H] = size
       for (const [id, el] of els.current) {
         const p = anchors.current.get(id)
-        if (!p) continue
-        const [x, y, z] = p
+        // nothing to show here (a route being swapped for another): never leave it where it was
+        if (!p) {
+          el.style.visibility = 'hidden'
+          continue
+        }
+        const [x, y, z, alpha] = p
         const cw = e[3] * x + e[7] * y + e[11] * z + e[15]
-        if (cw <= 0.01) {
+        if (cw <= 0.01 || alpha === 0) {
           el.style.visibility = 'hidden'
           continue
         }
@@ -113,6 +139,7 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
         const sy = 0.5 - ((e[1] * x + e[5] * y + e[9] * z + e[13]) / cw) * 0.5
         el.style.visibility = sx < -0.2 || sx > 1.2 || sy < -0.2 || sy > 1.2 ? 'hidden' : 'visible'
         el.style.transform = `translate3d(${(sx * W).toFixed(1)}px, ${(sy * H).toFixed(1)}px, 0)`
+        if (alpha !== undefined) el.style.opacity = alpha.toFixed(3)
       }
       overlay.current?.style.setProperty('--fog', clouds ? clouds.fog(pose.eye).toFixed(3) : 0)
     }
@@ -169,7 +196,7 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       const { clientWidth: W, clientHeight: H } = map.getContainer()
       const { top = 0, bottom = 0 } = insetRef.current ?? {}
       let zoom = v.fitted ? v.zoom : v.zoom + Math.log2(Math.min((H * (1 - top - bottom)) / 1080, W / 900))
-      const k = (1.5 * H * 40075016.686 * Math.cos((v.center[1] * Math.PI) / 180) * Math.cos((v.pitch * Math.PI) / 180)) / 512
+      const k = heightScale(map, v.center[1], v.pitch)
       const altAt = (z) => k / 2 ** z + v.lift // above the ground at the stop
       const zoomAt = (alt) => Math.log2(k / Math.max(1, alt - v.lift))
       for (const [lo, hi] of clouds?.bands() ?? []) {
@@ -187,16 +214,19 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       for (const id of ROUTE_LAYERS.active) map.setFilter(id, ['==', ['get', 'i'], i])
       route.tween?.kill()
       route.reveal.p = 0
+      route.since = null
       map.setPaintProperty('route-active', 'line-gradient', routeReveal(0))
       const path = PLACES[i]?.route?.path
       route.track = path ? trackOf(path) : null
+      // the old route's markers go with its line, before the camera moves off
       anchors.current.delete('traveller')
+      anchors.current.delete('route-label')
       if (!route.track) return
-      anchors.current.set('route-label', along(route.track, route.track.len * 0.5, 0))
+      route.mid = along(route.track, route.track.len * 0.5, 0)
       route.tween = gsap.to(route.reveal, {
         p: 1,
-        duration: reduced() ? 0.01 : 2.4,
-        delay: reduced() ? 0 : 1.2,
+        duration: reduced() ? 0.01 : 1.8,
+        delay: reduced() ? 0 : 0.8,
         ease: 'power2.inOut',
         onUpdate: () => map.setPaintProperty('route-active', 'line-gradient', routeReveal(route.reveal.p)),
       })
@@ -210,20 +240,27 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       return { pts, cum, len: cum.at(-1) }
     }
 
-    function goTo(id, opts = {}) {
+    // the decks thin out over the neighbourhood, so its places show between them
+    const covers = (hood) => ({ a: hood ? 0.42 : 0.5, b: hood ? 0.5 : 0.56 })
+
+    // Flies to a stop, or with `entrance` ({ duration, dive }) comes down to it through the clouds.
+    function goTo(id, entrance) {
       const hood = isHood(id)
       const i = placeIndex(id)
       reserve.setHighlight(id in VIEWS && id !== 'reserve')
       reserve.setBeacon(hood)
       reserve.setLandmark(i)
       showRoutes(hood, i)
-      if (clouds) {
-        gsap.to(clouds.params.a, { cover: hood ? 0.42 : 0.5, duration: 3, overwrite: true })
-        gsap.to(clouds.params.b, { cover: hood ? 0.5 : 0.56, duration: 3, overwrite: true })
+      // (the entrance settles the decks itself, once the camera is through them)
+      if (clouds && !entrance) {
+        gsap.to(clouds.params.a, { cover: covers(hood).a, duration: 3, overwrite: true })
+        gsap.to(clouds.params.b, { cover: covers(hood).b, duration: 3, overwrite: true })
       }
       const base = ground(i >= 0 ? PLACES[i].at : SITE.at)
       const v = framed(viewFor(id))
-      live.current.director.fly({ ...v, elevation: base + v.lift }, { spin: v.spin ?? 0, ...opts })
+      const to = { ...v, elevation: base + v.lift }
+      if (entrance) live.current.director.descend(to, entrance)
+      else live.current.director.fly(to, { spin: v.spin ?? 0 })
     }
 
     let demDirty = true
@@ -278,10 +315,18 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       for (const part of ['tiles', 'models', 'light']) progress(part)
       reserve.settle()
       placeAnchors()
-      // then rise above the clouds and load the start of the descent
+      // then rise high above the clouds and load the start of the descent
       const first = viewFor(stopRef.current)
+      const deck = clouds?.params.b ?? { alt: 4200, half: 380 }
+      const rest = { ...deck, clear: clouds?.params.clear }
       if (!reduced()) {
-        director.jump({ center: SITE.at, zoom: 13.2, pitch: 14, bearing: first.bearing - 100, elevation: ground() })
+        // a deeper deck below, that only parts once the camera is inside it
+        if (clouds) {
+          Object.assign(deck, ENTRANCE.deck)
+          clouds.params.clear = 0
+        }
+        const { height, pitch, turn } = ENTRANCE
+        director.jump({ center: SITE.at, zoom: Math.log2(heightScale(map, SITE.at[1], pitch) / height), pitch, bearing: first.bearing - turn, elevation: ground() })
         await until(settledView(), 60000)
         if (gone) return
       }
@@ -291,19 +336,35 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       if (gone) return
       progress('warm')
 
-      report.current?.('ready')
+      /*
+       * The entrance. Out of the white and down over the city, then a dive through the high
+       * clouds: the view whites out and clears as the camera comes through, and the page comes in.
+       * Its cues are heights, so they keep time with the camera whatever the viewport.
+       */
+      report.current?.('clouds')
+      const through = () => {
+        if (clouds) gsap.set(deck, { half: rest.half, cover: covers(isHood(stopRef.current)).b })
+        director.lean(true)
+        report.current?.('ready')
+      }
+      const { duration } = ENTRANCE
       intro = gsap.timeline()
-      intro.to(clouds?.params ?? {}, { mist: 0, duration: reduced() ? 0.01 : 2.8, ease: 'power2.out' }, 0)
-      intro.add(
-        () => {
-          live.current.introduced = true
-          director.lean(true)
-          setShown(true)
-          goTo(stopRef.current, reduced() ? {} : { duration: 7.2, hop: 0 })
-        },
-        reduced() ? 0 : 0.3,
-      )
-      holdIntro(intro)
+      intro.add(() => {
+        if (gone) return
+        live.current.introduced = true
+        cues.push(
+          // deep in the deck: open the view onto the reserve below, unseen in the white
+          [deck.alt, () => clouds && gsap.to(clouds.params, { clear: rest.clear, duration: 1.6, ease: 'sine.inOut' })],
+          [deck.alt - deck.half, through],
+        )
+        goTo(stopRef.current, reduced() ? undefined : { duration, dive: { ...ENTRANCE.dive, height: deck.alt, depth: deck.half } })
+      }, 0)
+      if (clouds) intro.to(clouds.params, { mist: 0, duration: reduced() ? 0.01 : 2, ease: 'sine.inOut' }, reduced() ? 0 : 0.4)
+      // the labels come in as the camera settles; whatever wasn't cued by now (no motion, say) runs
+      intro.add(() => setShown(true), reduced() ? 0 : duration - 2.5)
+      intro.add(() => cues.splice(0).forEach(([, cue]) => cue()), reduced() ? 0 : duration)
+      // it plays under the page's cover: the page holds its own entrance until the camera is through
+      holdIntro(intro, ['world'])
     })
 
     map.on('error', (e) => {
@@ -366,6 +427,8 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
     </div>
   )
 }
+
+const unit = (v) => Math.min(1, Math.max(0, v))
 
 // The point `s` metres along a track, lifted `up` metres off the road.
 function along({ pts, cum }, s, up = 2) {

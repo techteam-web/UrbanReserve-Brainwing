@@ -376,8 +376,9 @@ export default function Residences() {
   const onProgress = useCallback((progress, next) => setLoading({ progress, next }), [])
   const [photos, setPhotos] = useState(null)
   const close = useCallback(() => setPhotos(null), [])
-  // The entrance waits behind the clouds until the world is ready, then plays with its descent.
-  // Declared before useIntro so the cover is in place when the intro timeline is created.
+  // The page's entrance waits while the world loads and the camera comes down through the clouds,
+  // and plays once it is through. Declared before useIntro so the cover is in place when the intro
+  // timeline is created.
   useLayoutEffect(() => {
     setCovered('world', true)
     // World gives up waiting on a dead network well before this
@@ -387,10 +388,12 @@ export default function Residences() {
       setCovered('world', false)
     }
   }, [])
+  const through = world === 'ready' || world === 'failed'
   useEffect(() => {
-    if (world !== 'loading') setCovered('world', false)
-  }, [world])
-  useTone(world === 'loading' ? 'light' : 'dark')
+    if (through) setCovered('world', false)
+  }, [through])
+  // the header reads dark over the preloader and the clouds, light over the map
+  useTone(through ? 'dark' : 'light')
   useIntro(root)
 
   const stacked = useSyncExternalStore(subscribe, () => window.matchMedia(STACKED).matches)
@@ -420,7 +423,7 @@ export default function Residences() {
       )}
 
       {/* legibility scrims over the world */}
-      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${world === 'loading' ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${through ? 'opacity-100' : 'opacity-0'}`}>
         <div className="absolute inset-y-0 left-0 w-[46%] bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.56)_45%,transparent)] max-lg:hidden" />
         <div className="absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(9_27_21/0.36),transparent)] max-lg:hidden" />
         <div className="absolute inset-x-0 top-0 h-[20vh] bg-linear-to-b from-forest-950/60 to-transparent" />
