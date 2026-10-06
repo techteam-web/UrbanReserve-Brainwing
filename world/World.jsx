@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Map as MapLibre } from './maplibre'
 import { gsap, reduced, lite } from '../gsap/gsapConfig'
 import { holdIntro } from '../app/gate'
@@ -32,6 +32,8 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
   const anchors = useRef(new Map())
   const live = useRef(null)
   const stopRef = useRef(stop)
+  // labels stay out of sight until the scene is on show
+  const [shown, setShown] = useState(false)
   const report = useRef(onState)
   const reportProgress = useRef(onProgress)
   const insetRef = useRef(inset)
@@ -118,7 +120,10 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
     // Loading, in weighted parts. The intro starts only once every part is in.
     const PARTS = { style: 5, tiles: 25, models: 35, light: 15, sky: 15, warm: 5 }
     const got = {}
+    // the last moment anything arrived: a model, the HDRI, a map tile
+    let active = performance.now()
     const progress = (part, f = 1) => {
+      active = performance.now()
       got[part] = Math.max(got[part] ?? 0, f)
       const sum = Object.entries(PARTS).reduce((s, [k, w]) => s + w * (got[k] ?? 0), 0)
       const next = Object.keys(PARTS).find((k) => (got[k] ?? 0) < 1) ?? 'ready'
@@ -237,32 +242,52 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       const director = createDirector(map)
       live.current = { map, director, goTo, measure, introduced: false }
       const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+      // Waits are capped by a stall, not a clock: a slow connection keeps loading as long as data
+      // is still arriving, and only a dead one (nothing for STALL ms) lets the page start without it.
+      const STALL = 20000
+      map.on('data', () => (active = performance.now()))
+      const until = async (work, cap) => {
+        let id
+        const stall = new Promise((r) => (id = setInterval(() => (gone || performance.now() - active > STALL) && r(), 500)))
+        try {
+          await Promise.race([Promise.resolve(work).catch(() => {}), stall, wait(cap)])
+        } finally {
+          clearInterval(id)
+        }
+      }
       const frames = (n) => new Promise((r) => (function f(k) { requestAnimationFrame(() => (k ? f(k - 1) : r())) })(n))
-      // the map has drawn every tile its current view needs
+      // The map and its terrain have every tile the current view needs (the hillshade may still be
+      // filling in). Polled rather than waiting for 'idle', which the 3D layer's continuous repaints
+      // can hold off; two frames first so a new view has asked for its tiles.
       const settledView = async () => {
         await frames(2)
-        if (map.areTilesLoaded() && !map.isMoving()) return
-        await new Promise((r) => map.once('idle', r))
+        for (let calm = 0; calm < 2 && !gone; ) {
+          await wait(200)
+          calm = !gone && ['vector', 'dem'].every((id) => map.isSourceLoaded(id)) ? calm + 1 : 0
+        }
       }
       progress('style')
 
       // Everything under the clouds first: the arrival view's map and terrain, every model, and
-      // the HDRI lighting. Long caps only so a dead network can't hold the page forever.
+      // the HDRI lighting. A part that fails (a model that won't download, say) is skipped rather
+      // than holding the page.
+      const soft = (p) => Promise.resolve(p).catch(() => {})
       const tiles = settledView().then(() => progress('tiles'))
-      await Promise.race([Promise.all([reserve.layer.ready, reserve.lit, tiles]), wait(30000)])
+      await until(Promise.all([soft(reserve.layer.ready), soft(reserve.lit), tiles]), 120000)
       if (gone) return
+      for (const part of ['tiles', 'models', 'light']) progress(part)
       reserve.settle()
       placeAnchors()
       // then rise above the clouds and load the start of the descent
       const first = viewFor(stopRef.current)
       if (!reduced()) {
         director.jump({ center: SITE.at, zoom: 13.2, pitch: 14, bearing: first.bearing - 100, elevation: ground() })
-        await Promise.race([settledView(), wait(10000)])
+        await until(settledView(), 60000)
         if (gone) return
       }
       progress('sky')
       // compile every shader and draw a few frames before anything is seen
-      await Promise.race([reserve.warm(), wait(4000)])
+      await Promise.race([soft(reserve.warm()), wait(4000)])
       if (gone) return
       progress('warm')
 
@@ -273,6 +298,7 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
         () => {
           live.current.introduced = true
           director.lean(true)
+          setShown(true)
           goTo(stopRef.current, reduced() ? {} : { duration: 7.2, hop: 0 })
         },
         reduced() ? 0 : 0.3,
@@ -316,7 +342,7 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       <div ref={host} className="h-full w-full" />
       {/* cloud-coloured until the first frame of real clouds is drawn */}
       <div ref={veil} className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,#f1e9de,#d8d3c9_55%,#aeb3ab)] transition-opacity duration-1000" />
-      <div ref={overlay} className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div ref={overlay} inert={!shown} className={`pointer-events-none absolute inset-0 overflow-hidden transition-opacity duration-1000 ${shown ? 'opacity-100' : 'opacity-0'}`}>
         <Anchor id="route-label" register={register} show={Boolean(drive?.route)}>
           {drive?.route && <RouteLabel mins={drive.mins} km={drive.route.km} />}
         </Anchor>

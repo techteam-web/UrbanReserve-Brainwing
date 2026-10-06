@@ -141,3 +141,36 @@ export function skyEnvironment(renderer, sunDir) {
   mat.dispose()
   return target
 }
+
+// The map's own golden-hour sky (z up, like the scene), for the water to reflect: the HDRI is a
+// daylight sky, which would turn the creek blue under an amber horizon.
+export function duskSky(renderer, sunDir) {
+  const scene = new THREE.Scene()
+  const geo = new THREE.SphereGeometry(10, 48, 24)
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { uSun: { value: sunDir.clone().normalize() } },
+    vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      varying vec3 vDir;
+      uniform vec3 uSun;
+      void main() {
+        vec3 d = normalize(vDir);
+        float h = d.z;
+        vec3 zenith = vec3(0.11, 0.3, 0.38);
+        vec3 horizon = vec3(0.96, 0.74, 0.52);
+        vec3 ground = vec3(0.07, 0.16, 0.12);
+        vec3 col = h > 0.0 ? mix(horizon, zenith, pow(h, 0.45)) : mix(horizon * 0.5, ground, pow(-h, 0.35));
+        float s = max(dot(d, uSun), 0.0);
+        col += vec3(1.0, 0.75, 0.45) * (pow(s, 600.0) * 14.0 + pow(s, 12.0) * 0.5);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  })
+  scene.add(new THREE.Mesh(geo, mat))
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  const target = pmrem.fromScene(scene, 0, 0.1, 100)
+  pmrem.dispose()
+  geo.dispose()
+  mat.dispose()
+  return target
+}

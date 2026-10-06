@@ -4,6 +4,8 @@ import { setCovered } from '../app/gate'
 import { useIntro, useTone } from '../hooks/useIntro'
 import { INTERIORS, LOCATION, OVERVIEW, RESIDENCES, SPEC_IMAGE } from '../data/content'
 import { Icon, Lightbox, Swap } from '../components/ui'
+import { gsap } from '../gsap/gsapConfig'
+import { Mark } from '../art/Brand'
 import Terrain from '../art/Terrain'
 import { PLACES, isHood, placeIndex } from '../world/stops'
 
@@ -306,18 +308,80 @@ function Detail({ stop, onStop, onPhoto, onPlan, go }) {
   )
 }
 
+// What the preloader is waiting on, named after the next loading part World reports.
+const LOADING = {
+  style: 'Mapping the neighbourhood',
+  tiles: 'Mapping the neighbourhood',
+  models: 'Planting the forest',
+  light: 'Lighting the scene',
+  sky: 'Rising above the clouds',
+  warm: 'Rising above the clouds',
+  ready: 'Arriving',
+}
+
+// Holds the page until the whole 3D scene is in: the mark inside a filling gold ring, the
+// percentage, and what is still on its way.
+function Preloader({ show, progress, next }) {
+  const [shown, setShown] = useState(0)
+  const value = useRef({ p: 0 })
+  useEffect(() => {
+    const tween = gsap.to(value.current, { p: progress, duration: 0.8, ease: 'power2.out', onUpdate: () => setShown(value.current.p) })
+    return () => tween.kill()
+  }, [progress])
+  const pct = Math.round(shown * 100)
+  return (
+    <div
+      className={`pointer-events-none absolute inset-0 z-10 grid place-items-center transition-opacity duration-1000 ${show ? 'opacity-100' : 'opacity-0'}`}
+      role="progressbar"
+      aria-label="Loading the reserve"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-hidden={!show}
+    >
+      <div className="flex flex-col items-center text-forest-900">
+        <div className="relative grid size-[clamp(6.5rem,15vh,9rem)] place-items-center">
+          <svg viewBox="0 0 100 100" className="absolute inset-0 size-full -rotate-90" aria-hidden="true">
+            <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeOpacity="0.14" strokeWidth="1" />
+            <circle cx="50" cy="50" r="47" fill="none" stroke="var(--color-gold-deep)" strokeWidth="1.6" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - shown * 100} />
+          </svg>
+          {/* before anything can be measured (the 3D code itself still downloading), a turning arc */}
+          <svg
+            viewBox="0 0 100 100"
+            className={`absolute inset-0 size-full animate-spin transition-opacity duration-700 [animation-duration:2.6s] ${shown < 0.01 ? 'opacity-100' : 'opacity-0'}`}
+            aria-hidden="true"
+          >
+            <circle cx="50" cy="50" r="47" fill="none" stroke="var(--color-gold-deep)" strokeWidth="1.6" strokeLinecap="round" pathLength="100" strokeDasharray="14 86" />
+          </svg>
+          <span className="w-[44%] text-gold-deep">
+            <Mark />
+          </span>
+        </div>
+        <p className="mt-[3.2vh] font-display text-[clamp(1.8rem,4.4vh,2.8rem)] leading-none tabular-nums">
+          {pct}
+          <span className="text-[0.55em] text-forest-900/60">%</span>
+        </p>
+        <p className="label mt-[1.6vh] text-[0.62rem] text-forest-900/75">{LOADING[next] ?? LOADING.style}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function Residences() {
   const root = useRef(null)
   const { go } = useNav()
   const [stop, setStop] = useState('reserve')
   const [world, setWorld] = useState('loading')
+  const [loading, setLoading] = useState({ progress: 0, next: 'style' })
+  const onProgress = useCallback((progress, next) => setLoading({ progress, next }), [])
   const [photos, setPhotos] = useState(null)
   const close = useCallback(() => setPhotos(null), [])
   // The entrance waits behind the clouds until the world is ready, then plays with its descent.
   // Declared before useIntro so the cover is in place when the intro timeline is created.
   useLayoutEffect(() => {
     setCovered('world', true)
-    const safety = setTimeout(() => setCovered('world', false), 14000)
+    // World gives up waiting on a dead network well before this
+    const safety = setTimeout(() => setCovered('world', false), 200000)
     return () => {
       clearTimeout(safety)
       setCovered('world', false)
@@ -326,8 +390,7 @@ export default function Residences() {
   useEffect(() => {
     if (world !== 'loading') setCovered('world', false)
   }, [world])
-  // the left of the chrome sits on the rail's shade, the right on the bright map
-  useTone(world === 'loading' ? 'light' : ['dark', 'light'])
+  useTone(world === 'loading' ? 'light' : 'dark')
   useIntro(root)
 
   const stacked = useSyncExternalStore(subscribe, () => window.matchMedia(STACKED).matches)
@@ -352,29 +415,19 @@ export default function Residences() {
         </div>
       ) : (
         <Suspense fallback={null}>
-          <World stop={stop} inset={stacked ? STACKED_INSET : null} onStop={setStop} onState={setWorld} />
+          <World stop={stop} inset={stacked ? STACKED_INSET : null} onStop={setStop} onState={setWorld} onProgress={onProgress} />
         </Suspense>
       )}
 
-      {/* shade behind the rail, so its text reads over the bright map */}
+      {/* legibility scrims over the world */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${world === 'loading' ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="absolute inset-y-0 left-0 w-[42%] bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.6)_48%,transparent)] max-lg:hidden" />
-        <div className="absolute inset-x-0 top-0 h-[16vh] bg-linear-to-b from-forest-950/45 to-transparent lg:hidden" />
+        <div className="absolute inset-y-0 left-0 w-[46%] bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.56)_45%,transparent)] max-lg:hidden" />
+        <div className="absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(9_27_21/0.36),transparent)] max-lg:hidden" />
+        <div className="absolute inset-x-0 top-0 h-[20vh] bg-linear-to-b from-forest-950/60 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-[18vh] bg-linear-to-t from-forest-950/65 to-transparent" />
       </div>
 
-      {/* arriving */}
-      <div
-        className={`pointer-events-none absolute inset-0 grid place-items-center transition-opacity duration-1000 ${world === 'loading' ? 'opacity-100' : 'opacity-0'}`}
-        aria-hidden={world !== 'loading'}
-      >
-        <div className="flex flex-col items-center gap-4 text-forest-900">
-          <svg viewBox="0 0 50 50" className="size-12 animate-spin [animation-duration:2.4s]" fill="none" aria-hidden="true">
-            <circle cx="25" cy="25" r="22" stroke="currentColor" strokeOpacity="0.15" strokeWidth="1.2" />
-            <path d="M25 3a22 22 0 0 1 22 22" stroke="var(--color-gold-deep)" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <p className="label text-[0.62rem]">Rising above the reserve</p>
-        </div>
-      </div>
+      <Preloader show={world === 'loading'} progress={loading.progress} next={loading.next} />
 
       {/* desktop: rail, the world, detail card */}
       <div className="safe pointer-events-none relative hidden h-full grid-cols-[minmax(17rem,24rem)_1fr_minmax(21rem,27rem)] gap-[3vw] lg:grid">

@@ -11,7 +11,7 @@ import { reduced } from '../gsap/gsapConfig'
 import { SITE } from '../data/content'
 import { forest, PODIUM, PODIUM_H, PONDS, TOWERS, FLOOR_H } from './site'
 import { balconies, buildHighlight, buildTower } from './tower'
-import { facadeMaps, podiumMap, skyEnvironment } from './textures'
+import { duskSky, facadeMaps, podiumMap, skyEnvironment } from './textures'
 import { rotate, toLngLat, toLocal } from './geo'
 import { HDRI, SUN, SUN_AZ } from './light'
 import { createBoats, createWater, prepareBoat } from './water'
@@ -147,15 +147,22 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   const tmp = { P: new THREE.Matrix4(), V: new THREE.Matrix4(), S: new THREE.Matrix4() }
   const pose = { clip, inverse: new THREE.Matrix4(), eye: camera.position, time: 0 }
   const state = { highlight: 0, highlightTarget: 0, landmark: -1, beacon: 0, beaconTarget: 0 }
-  const env = { target: null, sky: true, hdr: null }
+  const env = { target: null, sky: true, hdr: null, water: null }
   let map, renderer, boats, ground = 0, last = performance.now(), disposed = false
   // resolves once the HDRI lights the scene (or has failed, leaving the stand-in sky)
   let lightUp
   const lit = new Promise((r) => (lightUp = r))
   // shader warm-up requested by the preloader: compiled inside a render call, then a few frames
   const warming = { waiting: [], frames: -1 }
+  // downloads start straight away, alongside the map's own start-up
+  const assets = loadModels((done, total) => onProgress?.('models', done / total))
+  assets.catch(() => {}) // a failure surfaces through build(); this only stops an unhandled warning
+  new EXRLoader()
+    .loadAsync(HDRI.url)
+    .then((tex) => (disposed ? tex.dispose() : (env.hdr = tex)))
+    .catch(() => lightUp())
   // far water and towers fade into the same golden haze as the map
-  scene.fog = new THREE.Fog('#c9a27c', 6000, 32000)
+  scene.fog = new THREE.Fog('#c9a27c', 14000, 60000)
   const water = createWater()
   scene.add(water.mesh)
   const mixers = []
@@ -228,10 +235,6 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   }
 
   async function build() {
-    new EXRLoader()
-      .loadAsync(HDRI.url)
-      .then((tex) => (disposed ? tex.dispose() : (env.hdr = tex)))
-      .catch(() => lightUp())
 
     const facade = new THREE.MeshStandardMaterial({ ...facadeMaps({ bay: 1.6, floor: FLOOR_H }), color: '#ffffff', metalness: 1, roughness: 1, emissive: '#ffffff', emissiveIntensity: 0.4, envMapIntensity: 1.1 })
     const stone = new THREE.MeshStandardMaterial({ color: '#ece4d6', roughness: 0.75, metalness: 0 })
@@ -272,7 +275,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       return g
     })
 
-    const gltf = await loadModels((done, total) => onProgress?.('models', done / total))
+    const gltf = await assets
     if (disposed) return
     const kinds = ['Tree-Variant-1', 'Tree-Variant-2', 'Tree-Variant-3'].map((n) => unitModel(gltf[n]))
     const trees = forest()
@@ -307,6 +310,11 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   function updateEnvironment() {
     if (!env.sky && !env.hdr) return
     renderer.resetState()
+    if (!env.water) {
+      env.water = duskSky(renderer, SUN_DIR)
+      water.mesh.material.envMap = env.water.texture
+      water.mesh.material.needsUpdate = true
+    }
     let next
     if (env.hdr) {
       env.hdr.mapping = THREE.EquirectangularReflectionMapping
@@ -455,6 +463,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
         })
       })
       env.target?.dispose()
+      env.water?.dispose()
       env.hdr?.dispose()
       renderer?.dispose()
     },

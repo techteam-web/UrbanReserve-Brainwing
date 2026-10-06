@@ -113,7 +113,8 @@ export function mapStyle() {
     sources: {
       vector: SOURCES.vector,
       dem: SOURCES.dem,
-      relief: { ...SOURCES.dem },
+      // the hillshade's own copy of the elevation, kept coarse: it only shades, and must not hold up loading
+      relief: { ...SOURCES.dem, maxzoom: 11 },
       site: { type: 'geojson', data: siteGeoJSON() },
       routes: route.source,
     },
