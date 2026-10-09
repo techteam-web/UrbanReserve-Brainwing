@@ -439,6 +439,8 @@ export default function Residences() {
   const [loading, setLoading] = useState({ progress: 0, next: 'style' })
   const onProgress = useCallback((progress, next) => setLoading({ progress, next }), [])
   const [photos, setPhotos] = useState(null)
+  // the desktop detail card, shown or slid away by the visitor
+  const [card, setCard] = useState(true)
   const close = useCallback(() => setPhotos(null), [])
   // The page's entrance waits while the world loads and the camera comes down through the clouds,
   // and plays once it is through. Declared before useIntro so the cover is in place when the intro
@@ -492,7 +494,7 @@ export default function Residences() {
         <div
           className={`absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.56)_45%,transparent)] transition-[width,opacity] duration-700 max-lg:hidden ${hood ? 'w-[32%] opacity-75' : 'w-[46%]'}`}
         />
-        <div className="absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(9_27_21/0.36),transparent)] max-lg:hidden" />
+        <div className={`absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(9_27_21/0.36),transparent)] transition-opacity duration-700 max-lg:hidden ${card ? '' : 'opacity-0'}`} />
         <div className="absolute inset-x-0 top-0 h-[20vh] bg-linear-to-b from-forest-950/60 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-[18vh] bg-linear-to-t from-forest-950/65 to-transparent" />
       </div>
@@ -525,12 +527,31 @@ export default function Residences() {
         <div />
 
         <div className="flex min-h-0 flex-col justify-center">
-          <div
-            data-in
-            className="pointer-events-auto relative max-h-full overflow-y-auto border border-ivory/10 bg-forest-950/70 p-[clamp(1.25rem,2.8vh,2.1rem)] shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)] backdrop-blur-xl [scrollbar-width:none]"
-          >
-            <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
-            <Swap id={stop}>{detail}</Swap>
+          {/* The card slides off to the right to leave the map clear; its handle stays at the edge.
+              (The slide is on a wrapper: the card's own transform belongs to the page's entrance.) */}
+          <div className={`relative flex max-h-full min-h-0 flex-col transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${card ? '' : 'translate-x-[calc(100%+var(--gutter))]'}`}>
+            <button
+              onClick={() => setCard((v) => !v)}
+              inert={!through}
+              aria-expanded={card}
+              aria-controls="residences-card"
+              aria-label={card ? 'Hide the details' : 'Show the details'}
+              title={card ? 'Hide the details' : 'Show the details'}
+              className={`pointer-events-auto absolute right-full top-1/2 mr-3 grid h-16 w-9 -translate-y-1/2 place-items-center rounded-full border border-ivory/15 bg-forest-950/75 text-gold-lit shadow-[0_20px_50px_-20px_rgb(0_0_0/0.8)] backdrop-blur-xl transition-[opacity,border-color,color] duration-700 hover:border-gold/60 hover:text-gold ${through ? '' : 'opacity-0'}`}
+            >
+              <svg viewBox="0 0 24 24" className={`size-4 transition-transform duration-700 ${card ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+            <div
+              id="residences-card"
+              data-in
+              inert={!card}
+              className="pointer-events-auto relative min-h-0 overflow-y-auto border border-ivory/10 bg-forest-950/70 p-[clamp(1.25rem,2.8vh,2.1rem)] shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)] backdrop-blur-xl [scrollbar-width:none]"
+            >
+              <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
+              <Swap id={stop}>{detail}</Swap>
+            </div>
           </div>
         </div>
       </div>
