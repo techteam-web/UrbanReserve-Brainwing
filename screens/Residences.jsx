@@ -19,6 +19,7 @@ const HOMES = [
 const PLANS = RESIDENCES.map((r) => ({ image: r.plan, label: r.title }))
 const TYPE = { school: 'School', hospital: 'Hospital', mall: 'Shopping', club: 'Club', road: 'Connectivity' }
 const nn = (i) => String(i + 1).padStart(2, '0')
+const RESIDENCE_HEADING = 'Homes designed to breathe'
 
 // Phones and portrait tablets stack the page; the map then frames its subject above the sheet.
 const STACKED = '(width < 64rem), (orientation: portrait)'
@@ -501,12 +502,10 @@ export default function Residences() {
       {/* desktop: rail, the world, detail card */}
       <div className="safe pointer-events-none relative hidden h-full grid-cols-[minmax(17rem,24rem)_1fr_minmax(21rem,27rem)] gap-[3vw] lg:grid">
         <div className="flex min-h-0 flex-col justify-center">
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto absolute max-w-[18vw] bottom-25">
             <p data-in className="eyebrow text-gold-lit">Residences</p>
-            <h2 data-in className="display mt-[1.8vh] text-[clamp(2rem,5vh,3.8rem)] font-normal">
-              Homes designed
-              <br />
-              to breathe
+            <h2 data-in className="display mt-2  text-[clamp(2rem,2vh,3.8rem)] font-normal">
+              {RESIDENCE_HEADING}
             </h2>
             <p data-in className={`copy grid text-ivory/70 transition-[grid-template-rows,opacity,margin] duration-700 ${hood ? 'mt-0 grid-rows-[0fr] opacity-0' : 'mt-[2vh] grid-rows-[1fr]'}`}>
               <span className="overflow-hidden">2 & 3 BHK-plus deck apartments with generous planted balconies and mesmerising city vistas.</span>
@@ -541,8 +540,8 @@ export default function Residences() {
       {/* phones and portrait tablets: title on top, a sheet at the bottom */}
       <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-(--gutter) pb-(--chrome-bot) pt-(--chrome-top) lg:hidden">
         <div data-in className="pointer-events-auto">
-          <p className="eyebrow text-gold-lit">Residences</p>
-          <h2 className="display mt-2 text-[clamp(1.6rem,7vw,2.6rem)] font-normal">Homes designed to breathe</h2>
+          <p className="eyebrow text-gold-lit">Residencs</p>
+          <h2 className="display mt-2 text-[clamp(1.6rem,7vw,2.6rem)] font-normal">{RESIDENCE_HEADING}</h2>
         </div>
         <div data-in className="pointer-events-auto">
           <ModeSwitch hood={hood} onChange={mode} className="mx-auto max-w-sm" />
