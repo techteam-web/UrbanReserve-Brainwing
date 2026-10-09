@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useNav } from '../app/nav'
 import { setCovered } from '../app/gate'
+import { playClick, preloadClick } from '../app/sound'
 import { useIntro, useTone } from '../hooks/useIntro'
 import { INTERIORS, LOCATION, OVERVIEW, RESIDENCES, SPEC_IMAGE } from '../data/content'
 import { Icon, Lightbox, Swap } from '../components/ui'
@@ -461,6 +462,11 @@ export default function Residences() {
   // the header reads dark over the preloader and the clouds, light over the map
   useTone(through ? 'dark' : 'light')
   useIntro(root)
+  // every button on the page clicks (the map's pins and hotspots too)
+  useEffect(() => {
+    preloadClick()
+  }, [])
+  const click = (e) => e.target.closest?.('button:not(:disabled), [role="button"], a[href]') && playClick()
 
   const stacked = useSyncExternalStore(subscribe, () => window.matchMedia(STACKED).matches)
   const hood = isHood(stop)
@@ -476,7 +482,7 @@ export default function Residences() {
   )
 
   return (
-    <section ref={root} className="screen bg-forest-950 text-ivory">
+    <section ref={root} onClickCapture={click} className="screen bg-forest-950 text-ivory">
       {world === 'failed' ? (
         <div className="absolute inset-0">
           <img src={SPEC_IMAGE} alt="" className="h-full w-full object-cover opacity-60" />
