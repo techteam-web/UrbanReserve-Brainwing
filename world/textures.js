@@ -109,9 +109,10 @@ export function podiumMap({ floor }) {
   return t
 }
 
-// A plain daylight sky, used for reflections until the HDRI has loaded. It is built the HDRI's way
-// (y up, sun where the HDRI's sun is) so the same environment rotation suits both.
-export function skyEnvironment(renderer, sunDir) {
+// A plain daylight sky, for reflections should the HDRI fail to load. It is built the HDRI's way
+// (y up, sun where the HDRI's sun is) so the same environment rotation suits both. Prefiltered
+// with the scene's own PMREM generator (as is duskSky), whose filter shader is compiled already.
+export function skyEnvironment(pmrem, sunDir) {
   const scene = new THREE.Scene()
   const geo = new THREE.SphereGeometry(10, 48, 24)
   const mat = new THREE.ShaderMaterial({
@@ -134,9 +135,7 @@ export function skyEnvironment(renderer, sunDir) {
       }`,
   })
   scene.add(new THREE.Mesh(geo, mat))
-  const pmrem = new THREE.PMREMGenerator(renderer)
   const target = pmrem.fromScene(scene, 0, 0.1, 100)
-  pmrem.dispose()
   geo.dispose()
   mat.dispose()
   return target
@@ -144,7 +143,7 @@ export function skyEnvironment(renderer, sunDir) {
 
 // The map's own golden-hour sky (z up, like the scene), for the water to reflect: the HDRI is a
 // daylight sky, which would turn the creek blue under an amber horizon.
-export function duskSky(renderer, sunDir) {
+export function duskSky(pmrem, sunDir) {
   const scene = new THREE.Scene()
   const geo = new THREE.SphereGeometry(10, 48, 24)
   const mat = new THREE.ShaderMaterial({
@@ -167,9 +166,7 @@ export function duskSky(renderer, sunDir) {
       }`,
   })
   scene.add(new THREE.Mesh(geo, mat))
-  const pmrem = new THREE.PMREMGenerator(renderer)
   const target = pmrem.fromScene(scene, 0, 0.1, 100)
-  pmrem.dispose()
   geo.dispose()
   mat.dispose()
   return target

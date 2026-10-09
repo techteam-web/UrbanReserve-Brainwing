@@ -23,6 +23,7 @@ uniform float uMist;  // extra cover (intro, loading)
 uniform vec3 uHaze;
 uniform float uClear; // how far the clouds part in front of the subject
 uniform vec3 uFlow;   // where the camera is heading on screen (ndc), and how far it has flown in
+uniform int uOne;     // always 1; see fbm
 
 vec3 centre;          // the ray through the middle of the screen
 
@@ -33,9 +34,11 @@ float noise(vec2 p) {
   return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
 }
 const mat2 ROT = mat2(0.8, 0.6, -0.6, 0.8);
+// The loop runs to oct * uOne: a bound the shader compiler can't see through keeps it from
+// unrolling every noise loop in the shader, which took it seconds to compile on Windows (Direct3D).
 float fbm(vec2 p, int oct) {
   float v = 0.0, a = 0.5;
-  for (int i = 0; i < 6; i++) { if (i >= oct) break; v += a * noise(p); p = ROT * p * 2.03 + 17.1; a *= 0.5; }
+  for (int i = 0; i < oct * uOne; i++) { v += a * noise(p); p = ROT * p * 2.03 + 17.1; a *= 0.5; }
   return v;
 }
 
@@ -123,27 +126,47 @@ void main() {
   frag = c;
 }`
 
-function compile(gl, type, src) {
+function shader(gl, type, src) {
   const s = gl.createShader(type)
   gl.shaderSource(s, src)
   gl.compileShader(s)
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s))
   return s
 }
 
 export function createClouds(canvas, { scale = 0.5 } = {}) {
   const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false })
   if (!gl) return null
+  // The shader is big and can take a second or more to compile. Where the browser offers
+  // KHR_parallel_shader_compile the driver compiles it off the main thread, and the clouds start
+  // drawing once it is done; nothing asks for its status before then, since that would wait.
+  const parallel = gl.getExtension('KHR_parallel_shader_compile')
   const prog = gl.createProgram()
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT))
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG))
+  const shaders = [shader(gl, gl.VERTEX_SHADER, VERT), shader(gl, gl.FRAGMENT_SHADER, FRAG)]
+  shaders.forEach((s) => gl.attachShader(prog, s))
   gl.linkProgram(prog)
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog))
+  let status = 'compiling'
+  let loc
+  let u
+  let settle
+  // resolves once the shader has compiled (or failed: either way there is nothing to wait for)
+  const compiled = new Promise((r) => (settle = r))
+  const ready = () => {
+    if (status !== 'compiling') return status === 'ready'
+    if (parallel && !gl.getProgramParameter(prog, parallel.COMPLETION_STATUS_KHR)) return false
+    settle()
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      status = 'failed'
+      console.error('clouds:', gl.getProgramInfoLog(prog), ...shaders.map((s) => gl.getShaderInfoLog(s)))
+      return false
+    }
+    status = 'ready'
+    loc = gl.getAttribLocation(prog, 'aPos')
+    u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uClear', 'uFlow', 'uOne'].map((n) => [n, gl.getUniformLocation(prog, n)]))
+    return true
+  }
   const buf = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, buf)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
-  const loc = gl.getAttribLocation(prog, 'aPos')
-  const u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uClear', 'uFlow'].map((n) => [n, gl.getUniformLocation(prog, n)]))
   const inv = new Float32Array(16)
 
   /*
@@ -194,9 +217,15 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
   }
   const vec = (d) => [d.alt, d.half, d.cover, d.size]
 
+  // the canvas's size on screen, kept up to date by an observer: reading it every frame would force
+  // the browser to lay the page out again each time
+  let box = [canvas.clientWidth, canvas.clientHeight]
+  const watch = new ResizeObserver(([e]) => (box = [e.contentRect.width, e.contentRect.height]))
+  watch.observe(canvas)
+
   function resize() {
-    const w = Math.max(1, Math.round(canvas.clientWidth * scale))
-    const h = Math.max(1, Math.round(canvas.clientHeight * scale))
+    const w = Math.max(1, Math.round(box[0] * scale))
+    const h = Math.max(1, Math.round(box[1] * scale))
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w
       canvas.height = h
@@ -205,6 +234,7 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
 
   return {
     params,
+    compiled,
     // altitude bands (m) a resting camera should stay out of
     bands: () => [params.a, params.b].map((d) => [d.alt - d.half - 30, d.alt + d.half + 30]),
     // how deep in cloud the camera is (0..1), for fading DOM labels with the view
@@ -212,11 +242,14 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
       const into = ({ alt, half, cover }, k) => Math.max(0, 1 - Math.abs(eye.z - alt) / half) * Math.min(1, cover * k)
       return Math.min(1, Math.max(Math.min(0.8, into(params.a, 1.5)), into(params.b, 1.9)) + params.mist)
     },
+    // Draws a frame. False while the shader is still compiling (true once it has failed too:
+    // there is nothing more to wait for).
     draw(pose, sun) {
       resize()
       track(pose)
       // only its fraction shows, and a small number keeps its precision
       flow.phase -= Math.floor(flow.phase)
+      if (!ready()) return status === 'failed'
       gl.viewport(0, 0, canvas.width, canvas.height)
       gl.useProgram(prog)
       pose.inverse.elements.forEach((v, i) => (inv[i] = v))
@@ -230,14 +263,17 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
       gl.uniform3f(u.uHaze, ...params.haze)
       gl.uniform1f(u.uClear, params.clear)
       gl.uniform3f(u.uFlow, flow.x, flow.y, flow.phase)
+      gl.uniform1i(u.uOne, 1)
       gl.bindBuffer(gl.ARRAY_BUFFER, buf)
       gl.enableVertexAttribArray(loc)
       gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
+      return true
     },
     dispose() {
+      watch.disconnect()
       gl.deleteBuffer(buf)
       gl.deleteProgram(prog)
       gl.getExtension('WEBGL_lose_context')?.loseContext()

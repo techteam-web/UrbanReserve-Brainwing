@@ -3,52 +3,81 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import WATER from '../data/water.json'
 import { SITE } from '../data/content'
 import { toLocal } from './geo'
+import { shoreDistances } from './shore'
 
 // Lowest water level (m above sea level); each water body sits just above its own shoreline.
 const LEVEL = 0.6
 
+// Which kinds of water are open (OpenMapTiles classes, see scripts/water.mjs): the sea and the
+// creeks run from turquoise shallows to deep blue, while lakes, ponds and salt pans keep an even blue.
+const ROUGH = { ocean: 1, river: 0.85 }
+const STILL = 0.12
+
+// The distance to the shore is mapped `half` metres either side of the reserve on a `size`² grid,
+// out to `range` metres: shallows and surf along the banks, deep water beyond.
+const SHORE = { half: 9000, size: 1024, range: 400 }
+
+// The water's colours: deep water and the shallows.
+const TONES = { deep: '#082b47', shallow: '#2b97b8' }
+
 /*
- * The creek, the sea and the ponds around the reserve as one rippling surface (polygons from
- * scripts/water.mjs). Two layers of the same normal map drift past each other, one in the base
- * and one in a glossy clearcoat, and the HDRI does the reflections.
+ * The sea, the creeks and the ponds around the reserve as one calm, glossy surface (polygons from
+ * scripts/water.mjs) reflecting the sky. Its colour runs from turquoise shallows along the banks
+ * to deep blue offshore, in slow light and dark patches; ponds and salt pans keep an even,
+ * darker blue.
  */
 export function createWater() {
-  let loaded
-  const ready = new Promise((r) => (loaded = r))
-  const ripples = new THREE.TextureLoader().load('/water_normal.jpg', () => loaded(), undefined, () => loaded())
-  ripples.wrapS = ripples.wrapT = THREE.RepeatWrapping
-  ripples.anisotropy = 8
-  const swell = ripples.clone()
-  ripples.repeat.set(1 / 19, 1 / 19)
-  swell.repeat.set(1 / 52, 1 / 52)
-
-  const material = new THREE.MeshPhysicalMaterial({
-    color: '#1f5d6b',
-    roughness: 0.2,
-    metalness: 0,
-    normalMap: swell,
-    normalScale: new THREE.Vector2(0.6, 0.6),
-    clearcoat: 1,
-    clearcoatRoughness: 0.04,
-    clearcoatNormalMap: ripples,
-    clearcoatNormalScale: new THREE.Vector2(0.35, 0.35),
-    envMapIntensity: 1,
-  })
-
-  // one geometry, remembering which vertices belong to which water body
+  // one geometry, remembering which vertices belong to which water body and how rough it runs
   const bodies = []
+  const outlines = []
   let start = 0
-  const parts = WATER.polygons.map((rings) => {
-    const [outer, ...holes] = rings.map((ring) => ring.map((p) => new THREE.Vector2(...toLocal(SITE.at, p))))
+  const parts = WATER.polygons.map((rings, i) => {
+    const local = rings.map((ring) => ring.map((p) => toLocal(SITE.at, p)))
+    outlines.push(local)
+    const [outer, ...holes] = local.map((ring) => ring.map((p) => new THREE.Vector2(...p)))
     const shape = new THREE.Shape(outer)
     shape.holes = holes.map((h) => new THREE.Path(h))
     const g = new THREE.ShapeGeometry(shape)
     const count = g.attributes.position.count
+    g.setAttribute('aRough', new THREE.Float32BufferAttribute(new Float32Array(count).fill(ROUGH[WATER.kinds?.[i]] ?? STILL), 1))
     const shore = rings[0].filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 6)) === 0).slice(0, 6)
     bodies.push({ start, count, shore })
     start += count
     return g
   })
+
+  const uniforms = {
+    uTime: { value: 0 },
+    // open water everywhere until the shore field has been worked out
+    uShore: { value: fieldTexture(new Uint8Array([255]), 1) },
+    uShoreBox: { value: new THREE.Vector3(-SHORE.half, -SHORE.half, 2 * SHORE.half) },
+    uShoreRange: { value: SHORE.range },
+    uDeep: { value: new THREE.Color(TONES.deep) },
+    uShallow: { value: new THREE.Color(TONES.shallow) },
+  }
+  const material = new THREE.MeshPhysicalMaterial({
+    roughness: 0.18,
+    metalness: 0,
+    ior: 1.333,
+    clearcoat: 1,
+    clearcoatRoughness: 0.08,
+    envMapIntensity: 1,
+  })
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms)
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aRough;\nvarying vec2 vSea;\nvarying float vRough;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSea = position.xy;\nvRough = aRough;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n${SEA}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${SEA_COLOUR}`)
+  }
+
+  const charted = shoreField(outlines).then((texture) => {
+    uniforms.uShore.value.dispose()
+    uniforms.uShore.value = texture
+  })
+
   const mesh = new THREE.Mesh(mergeGeometries(parts), material)
   mesh.renderOrder = -1
   parts.forEach((g) => g.dispose())
@@ -66,7 +95,8 @@ export function createWater() {
 
   return {
     mesh,
-    ready,
+    // the shore field is in
+    ready: charted,
     // sets each water body on its shoreline once the terrain under it has loaded
     settle(ground, elevationAt) {
       base = ground
@@ -86,11 +116,84 @@ export function createWater() {
       return (bodies[k]?.level ?? LEVEL) - base
     },
     update(t) {
-      swell.offset.set(t * 0.011, t * 0.006)
-      ripples.offset.set(-t * 0.019, t * 0.013)
+      uniforms.uTime.value = t
     },
   }
 }
+
+// The shore field as a texture.
+function fieldTexture(data, size) {
+  const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat, THREE.UnsignedByteType)
+  texture.magFilter = texture.minFilter = THREE.LinearFilter
+  texture.needsUpdate = true
+  return texture
+}
+
+// The distance to the nearest shore around the reserve (see shore.js), worked out in a worker so
+// it never stalls the page, or here where a worker can't be had. Beyond it is open water.
+function shoreField(outlines) {
+  const here = () => fieldTexture(shoreDistances(outlines, SHORE), SHORE.size)
+  return new Promise((resolve) => {
+    let worker
+    try {
+      worker = new Worker(new URL('./shore.worker.js', import.meta.url), { type: 'module' })
+    } catch {
+      resolve(here())
+      return
+    }
+    worker.onmessage = ({ data }) => {
+      worker.terminate()
+      resolve(fieldTexture(data, SHORE.size))
+    }
+    worker.onerror = () => {
+      worker.terminate()
+      resolve(here())
+    }
+    worker.postMessage({ outlines, grid: SHORE })
+  })
+}
+
+// Declarations for the water shader: its colours, a noise for its slow patches, and the shore field.
+const SEA = /* glsl */ `
+uniform float uTime;
+uniform sampler2D uShore;
+uniform vec3 uShoreBox;   // west, south, size (m)
+uniform float uShoreRange;
+uniform vec3 uDeep;
+uniform vec3 uShallow;
+varying vec2 vSea;        // scene metres, east and north
+varying float vRough;     // 1 for the open sea and creeks, low for still water
+
+float seaHash(ivec2 i) {
+  uvec2 q = uvec2(i + 1048576);
+  uint h = (q.x * 1597334677u) ^ (q.y * 3812015801u);
+  h ^= h >> 15u;
+  h *= 2246822519u;
+  h ^= h >> 13u;
+  return float(h) * (1.0 / 4294967296.0);
+}
+
+float seaNoise(vec2 p) {
+  vec2 c = floor(p);
+  ivec2 i = ivec2(c);
+  vec2 f = p - c;
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(seaHash(i), seaHash(i + ivec2(1, 0)), u.x), mix(seaHash(i + ivec2(0, 1)), seaHash(i + ivec2(1, 1)), u.x), u.y);
+}
+`
+
+// The water's colour (its surface stays flat and calm): turquoise shallows to deep blue offshore,
+// in slow light and dark patches; still water an even, darker blue.
+const SEA_COLOUR = /* glsl */ `
+vec2 fieldUv = (vSea - uShoreBox.xy) / uShoreBox.z;
+float inField = step(0.0, fieldUv.x) * step(0.0, fieldUv.y) * step(fieldUv.x, 1.0) * step(fieldUv.y, 1.0);
+float shore = mix(uShoreRange, texture2D(uShore, clamp(fieldUv, 0.0, 1.0)).r * uShoreRange, inField);
+float open = smoothstep(0.3, 0.7, vRough);
+float deep = smoothstep(15.0, 260.0, shore);
+float patches = seaNoise(vSea / 480.0 + uTime * 0.003);
+float tone = clamp(deep * 0.85 + (patches - 0.5) * 0.4 + 0.08, 0.0, 1.0);
+diffuseColor.rgb = mix(uShallow, uDeep, mix(0.72, tone, open));
+`
 
 // A foam trail fanning out behind a moving boat.
 function wakeTexture() {

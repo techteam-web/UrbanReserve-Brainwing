@@ -29,12 +29,12 @@ const subscribe = (cb) => {
 }
 const STACKED_INSET = { top: 0.18, bottom: 0.5 }
 
-function Row({ on, onClick, tight, children }) {
+function Row({ on, onClick, children }) {
   return (
     <button
       onClick={onClick}
       aria-current={on || undefined}
-      className={`group relative flex w-full items-center gap-4 border-b border-ivory/10 ${tight ? 'py-[0.7vh]' : 'py-[1.05vh]'} text-left transition-colors duration-500 ${on ? 'text-ivory' : 'text-ivory/50 hover:text-ivory/90'}`}
+      className={`group relative flex w-full items-center gap-4 border-b border-ivory/10 py-[1.05vh] text-left transition-colors duration-500 ${on ? 'text-ivory' : 'text-ivory/50 hover:text-ivory/90'}`}
     >
       {children}
       <span
@@ -80,39 +80,102 @@ function HomesList({ stop, onStop }) {
   )
 }
 
-function PlacesList({ stop, onStop }) {
-  let k = 0
-  const byName = Object.fromEntries(PLACES.map((p) => [p.name, p]))
+// The kinds of place in the neighbourhood bar, in order, with their labels there.
+const KINDS = [
+  ['school', 'Schools'],
+  ['hospital', 'Hospitals'],
+  ['mall', 'Shopping'],
+  ['club', 'Clubs'],
+  ['road', 'Connectivity'],
+].filter(([type]) => PLACES.some((p) => p.type === type))
+
+function BarButton({ on, open, onClick, label, children, ...aria }) {
   return (
-    <div>
-      <Row tight on={stop === 'neighbourhood'} onClick={() => onStop('neighbourhood')}>
-        <span className="grid size-6 shrink-0 place-items-center text-gold">
-          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <button
+      onClick={onClick}
+      {...aria}
+      className={`label relative flex min-w-[5.6rem] flex-col items-center gap-1.5 rounded-full px-3.5 py-2 text-[0.56rem] transition-colors duration-500 ${
+        open ? 'bg-gold text-forest-950' : on ? 'bg-ivory/10 text-ivory' : 'text-ivory/65 hover:bg-ivory/5 hover:text-ivory'
+      }`}
+    >
+      <span className={open ? '' : 'text-gold-lit'}>{children}</span>
+      {label}
+    </button>
+  )
+}
+
+/*
+ * The neighbourhood's places in a bar along the foot of the screen, by kind (on desktop; the
+ * stacked layout keeps its chips). A kind opens a menu of its places above the bar, and picking
+ * one flies there. The map keeps the whole width between the rail's title and the card.
+ */
+function PlacesBar({ show, stop, onStop }) {
+  const [opened, setOpened] = useState(null)
+  const bar = useRef(null)
+  // the menu shuts with the bar, on Escape, and on a click anywhere else
+  const open = show ? opened : null
+  useEffect(() => {
+    if (!open) return
+    const shut = (e) => (e.type === 'keydown' ? e.key === 'Escape' : !bar.current?.contains(e.target)) && setOpened(null)
+    document.addEventListener('pointerdown', shut)
+    document.addEventListener('keydown', shut)
+    return () => {
+      document.removeEventListener('pointerdown', shut)
+      document.removeEventListener('keydown', shut)
+    }
+  }, [open])
+  const current = PLACES[placeIndex(stop)]?.type
+  const go = (id) => {
+    setOpened(null)
+    onStop(id)
+  }
+
+  return (
+    <div
+      ref={bar}
+      inert={!show}
+      className={`absolute bottom-0 left-1/2 z-10 flex h-(--chrome-bot) -translate-x-1/2 items-center transition-[opacity,translate] duration-700 max-lg:hidden ${show ? '' : 'pointer-events-none translate-y-3 opacity-0'}`}
+    >
+      <nav aria-label="Places nearby" className="flex items-center gap-1 rounded-full border border-ivory/12 bg-forest-950/75 p-1 shadow-[0_24px_60px_-24px_rgb(0_0_0/0.8)] backdrop-blur-xl">
+        <BarButton label="Overview" on={stop === 'neighbourhood'} onClick={() => go('neighbourhood')}>
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
             <circle cx="12" cy="12" r="8.5" strokeDasharray="1.5 2.5" />
           </svg>
-        </span>
-        <span className="font-display text-[clamp(1.05rem,2.3vh,1.5rem)] uppercase tracking-[0.06em]">Overview</span>
-        <span className="label ml-auto text-[0.56rem] text-ivory/35">All places</span>
-      </Row>
-      {LOCATION.rings.map((ring) => (
-        <div key={ring.mins}>
-          <p className="mt-[1.1vh] font-display text-[clamp(0.9rem,1.9vh,1.15rem)] italic text-gold-lit">{ring.mins} min</p>
-          {ring.places.map(({ name }) => {
-            const p = byName[name]
-            const id = `place-${k++}`
-            return (
-              <Row key={id} tight on={stop === id} onClick={() => onStop(id)}>
-                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-sand/90 text-white">
-                  <Icon name={p.type} className="size-3" />
-                </span>
-                <span className="truncate text-[clamp(0.82rem,1.65vh,1rem)] tracking-wide">{p.name}</span>
-                {p.route && <span className="ml-auto shrink-0 text-[0.7rem] tabular-nums text-ivory/40">{p.route.km} km</span>}
-              </Row>
-            )
-          })}
-        </div>
-      ))}
+        </BarButton>
+        {KINDS.map(([type, label]) => (
+          <div key={type} className="relative">
+            <BarButton label={label} on={current === type} open={open === type} onClick={() => setOpened(open === type ? null : type)} aria-haspopup="menu" aria-expanded={open === type}>
+              <Icon name={type} className="size-4" />
+            </BarButton>
+            {open === type && (
+              <div
+                role="menu"
+                aria-label={label}
+                className="absolute bottom-[calc(100%+0.85rem)] left-1/2 w-max min-w-[16rem] -translate-x-1/2 rounded-2xl border border-ivory/12 bg-forest-950/85 p-1.5 shadow-[0_30px_70px_-30px_rgb(0_0_0/0.9)] backdrop-blur-xl"
+              >
+                {PLACES.map((p, i) => [p, `place-${i}`])
+                  .filter(([p]) => p.type === type)
+                  .map(([p, id]) => (
+                    <button
+                      key={id}
+                      role="menuitem"
+                      aria-current={stop === id || undefined}
+                      onClick={() => go(id)}
+                      className={`flex w-full items-center gap-4 rounded-xl px-3.5 py-2.5 text-left transition-colors duration-300 ${stop === id ? 'bg-ivory/10 text-ivory' : 'text-ivory/75 hover:bg-ivory/5 hover:text-ivory'}`}
+                    >
+                      <span className="text-[0.92rem] tracking-wide">{p.name}</span>
+                      <span className="ml-auto flex shrink-0 items-baseline gap-2">
+                        <span className="font-display text-[0.95rem] italic text-gold-lit">{p.mins} min</span>
+                        {p.route && <span className="text-[0.68rem] tabular-nums text-ivory/40">{p.route.km} km</span>}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </nav>
     </div>
   )
 }
@@ -213,7 +276,7 @@ function Detail({ stop, onStop, onPhoto, onPlan, go }) {
             <Stat key={r.mins} value={r.mins} label={`min · ${r.places.length} ${r.places.length > 1 ? 'places' : 'place'}`} />
           ))}
         </div>
-        <p data-swap className="label mt-[2.4vh] text-[0.56rem] leading-relaxed text-ivory/45">Pick a place on the map or in the list to fly there.</p>
+        <p data-swap className="label mt-[2.4vh] text-[0.56rem] leading-relaxed text-ivory/45">Pick a place on the map, or by kind in the bar below, to fly there.</p>
         <div data-swap className="mt-[2vh]">
           <button onClick={() => onStop('reserve')} className="btn w-full border-gold/60 text-gold-lit">
             Back to the reserve
@@ -424,7 +487,10 @@ export default function Residences() {
 
       {/* legibility scrims over the world */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${through ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="absolute inset-y-0 left-0 w-[46%] bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.56)_45%,transparent)] max-lg:hidden" />
+        {/* narrower over the neighbourhood, where the rail only holds its title */}
+        <div
+          className={`absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.56)_45%,transparent)] transition-[width,opacity] duration-700 max-lg:hidden ${hood ? 'w-[32%] opacity-75' : 'w-[46%]'}`}
+        />
         <div className="absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(9_27_21/0.36),transparent)] max-lg:hidden" />
         <div className="absolute inset-x-0 top-0 h-[20vh] bg-linear-to-b from-forest-950/60 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-[18vh] bg-linear-to-t from-forest-950/65 to-transparent" />
@@ -448,9 +514,10 @@ export default function Residences() {
             <div data-in className="mt-[3.2vh]">
               <ModeSwitch hood={hood} onChange={mode} />
             </div>
+            {/* the homes list here; the neighbourhood's places are in the bar along the foot */}
             <div data-in className="mt-[2vh]">
               <Swap id={hood ? 'hood' : 'homes'}>
-                <div data-swap>{hood ? <PlacesList stop={stop} onStop={setStop} /> : <HomesList stop={stop} onStop={setStop} />}</div>
+                <div data-swap>{!hood && <HomesList stop={stop} onStop={setStop} />}</div>
               </Swap>
             </div>
           </div>
@@ -468,6 +535,8 @@ export default function Residences() {
           </div>
         </div>
       </div>
+
+      <PlacesBar show={hood && through} stop={stop} onStop={setStop} />
 
       {/* phones and portrait tablets: title on top, a sheet at the bottom */}
       <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-(--gutter) pb-(--chrome-bot) pt-(--chrome-top) lg:hidden">

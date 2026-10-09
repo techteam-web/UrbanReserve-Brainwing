@@ -27,3 +27,21 @@ export function holdIntro(tl, under = []) {
   held.set(tl, under)
   return tl
 }
+
+// Heavy start-up work (the Residences world) waits for a screen transition to finish, so it can't
+// stall the curtain mid-sweep. The navigator marks each sweep; with none running this resolves at
+// once.
+let still = Promise.resolve()
+let settle = null
+
+export function setTransition(on) {
+  if (on && !settle) still = new Promise((r) => (settle = r))
+  if (!on && settle) {
+    settle()
+    settle = null
+  }
+}
+
+export async function afterTransition() {
+  while (settle) await still
+}

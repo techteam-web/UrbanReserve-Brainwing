@@ -34,6 +34,34 @@ const loader = (() => {
   }
 })()
 
+// The HDRI as a texture, decoded in a worker (or here, where a worker can't be had).
+function loadHdri(url) {
+  const here = () => new EXRLoader().loadAsync(url)
+  return new Promise((resolve, reject) => {
+    let worker
+    try {
+      worker = new Worker(new URL('./hdri.worker.js', import.meta.url), { type: 'module' })
+    } catch {
+      here().then(resolve, reject)
+      return
+    }
+    worker.onmessage = ({ data: d }) => {
+      worker.terminate()
+      if (d.error) return reject(new Error(d.error))
+      const tex = new THREE.DataTexture(d.data, d.width, d.height, d.format, d.type)
+      tex.colorSpace = d.colorSpace ?? THREE.LinearSRGBColorSpace
+      tex.minFilter = tex.magFilter = THREE.LinearFilter
+      tex.needsUpdate = true
+      resolve(tex)
+    }
+    worker.onerror = () => {
+      worker.terminate()
+      here().then(resolve, reject)
+    }
+    worker.postMessage(new URL(url, location.href).href)
+  })
+}
+
 // Parsed once and reused on later visits; each scene clones what it changes.
 const MODELS = ['Tree-Variant-1', 'Tree-Variant-2', 'Tree-Variant-3', 'Tree-v1', 'bird', 'FishingBoat', 'FishingBoat2', 'low_poly_fishing_boat-v1', 'Yatch1']
 let models
@@ -145,22 +173,24 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   const enu = new THREE.Matrix4()
   const clip = new THREE.Matrix4()
   const tmp = { P: new THREE.Matrix4(), V: new THREE.Matrix4(), S: new THREE.Matrix4() }
-  const pose = { clip, inverse: new THREE.Matrix4(), eye: camera.position, time: 0 }
+  const pose = { clip, inverse: new THREE.Matrix4(), eye: camera.position, camera, time: 0 }
   const state = { highlight: 0, highlightTarget: 0, landmark: -1, beacon: 0, beaconTarget: 0 }
-  const env = { target: null, sky: true, hdr: null, water: null }
+  // `sky` asks for the stand-in sky, needed only if the HDRI can't be had; `pmrem` prefilters them
+  // all, once `filtering` (its shader compiled)
+  const env = { target: null, sky: false, hdr: null, water: null, pmrem: null, filtering: false }
   let map, renderer, boats, ground = 0, last = performance.now(), disposed = false
   // resolves once the HDRI lights the scene (or has failed, leaving the stand-in sky)
   let lightUp
   const lit = new Promise((r) => (lightUp = r))
-  // shader warm-up requested by the preloader: compiled inside a render call, then a few frames
-  const warming = { waiting: [], frames: -1 }
+  // the shader warm-up the preloader asks for: compiled from inside a render call, then the scene
+  // goes live and a few frames are drawn
+  const warming = { waiting: [], started: false, live: false, frames: 0 }
   // downloads start straight away, alongside the map's own start-up
   const assets = loadModels((done, total) => onProgress?.('models', done / total))
   assets.catch(() => {}) // a failure surfaces through build(); this only stops an unhandled warning
-  new EXRLoader()
-    .loadAsync(HDRI.url)
+  loadHdri(HDRI.url)
     .then((tex) => (disposed ? tex.dispose() : (env.hdr = tex)))
-    .catch(() => lightUp())
+    .catch(() => (env.sky = true))
   // far water and towers fade into the same golden haze as the map
   scene.fog = new THREE.Fog('#c9a27c', 14000, 60000)
   const water = createWater()
@@ -305,29 +335,59 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     map?.triggerRepaint()
   }
 
+  /*
+   * Prefiltering an environment (PMREM) compiles a heavy filter shader the first time, which can
+   * hold the page for a second. So the scene keeps one generator, and its filter is compiled in
+   * the background first (in parallel where the browser can). That reaches into the generator's
+   * internals (three r186): should they change, the filter just compiles on first use as before.
+   * It needs the render target the filter draws into, so the program matches; hence it runs
+   * inside a render call too.
+   */
+  function warmPrefilter() {
+    try {
+      env.pmrem._setSize(256)
+      env.pmrem._allocateTargets().dispose()
+      const filter = new THREE.Mesh(env.pmrem._lodMeshes[0].geometry, env.pmrem._ggxMaterial)
+      renderer.setRenderTarget(env.pmrem._pingPongRenderTarget)
+      const compiled = renderer.compileAsync(filter, camera)
+      renderer.setRenderTarget(null)
+      return compiled
+    } catch {
+      return Promise.resolve()
+    }
+  }
+
   // Environment maps are prefiltered here, inside the map's render call, where MapLibre expects the
-  // GL state to change: first a plain sky, then the HDRI once it has downloaded.
+  // GL state to change, one a frame so no single frame does it all: the water's golden sky first,
+  // then the HDRI once it has decoded (or a stand-in sky if it can't be had).
   function updateEnvironment() {
-    if (!env.sky && !env.hdr) return
-    renderer.resetState()
+    if (!env.pmrem) {
+      env.pmrem = new THREE.PMREMGenerator(renderer)
+      renderer.resetState()
+      warmPrefilter().then(() => (env.filtering = true))
+      return
+    }
+    if (!env.filtering) return
     if (!env.water) {
-      env.water = duskSky(renderer, SUN_DIR)
+      renderer.resetState()
+      env.water = duskSky(env.pmrem, SUN_DIR)
       water.mesh.material.envMap = env.water.texture
       water.mesh.material.needsUpdate = true
+      return
     }
+    if (!env.sky && !env.hdr) return
+    renderer.resetState()
     let next
     if (env.hdr) {
       env.hdr.mapping = THREE.EquirectangularReflectionMapping
-      const pmrem = new THREE.PMREMGenerator(renderer)
-      next = pmrem.fromEquirectangular(env.hdr)
-      pmrem.dispose()
+      next = env.pmrem.fromEquirectangular(env.hdr)
       env.hdr.dispose()
       env.hdr = null
       onProgress?.('light', 1)
-      lightUp()
     } else {
-      next = skyEnvironment(renderer, ENV_SUN)
+      next = skyEnvironment(env.pmrem, ENV_SUN)
     }
+    lightUp()
     env.sky = false
     env.target?.dispose()
     env.target = next
@@ -439,17 +499,17 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       updateEnvironment()
       renderer.resetState()
       renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
-      if (warming.waiting.length && warming.frames < 0) {
-        // every material's program is built now, behind the preloader, not on the intro's first frames
-        renderer.compile(scene, camera)
-        warming.frames = 0
+      if (warming.waiting.length && !warming.started) {
+        // Every material's program at once, behind the preloader. Where the browser can, the
+        // driver compiles them in parallel off the main thread.
+        warming.started = true
+        renderer.compileAsync(scene, camera).then(() => (warming.live = true))
       }
-      renderer.render(scene, camera)
+      // Nothing is drawn until then: drawing with a program that is still compiling waits for
+      // it, which froze the page. The camera still moves, so clouds and labels keep up.
+      if (warming.live) renderer.render(scene, camera)
       onFrame?.(pose)
-      if (warming.frames >= 0 && ++warming.frames > 2) {
-        warming.frames = -1
-        warming.waiting.splice(0).forEach((done) => done())
-      }
+      if (warming.live && warming.waiting.length && ++warming.frames > 2) warming.waiting.splice(0).forEach((done) => done())
       map.triggerRepaint()
     },
     onRemove() {
@@ -465,6 +525,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       env.target?.dispose()
       env.water?.dispose()
       env.hdr?.dispose()
+      env.pmrem?.dispose()
       renderer?.dispose()
     },
   }
@@ -474,7 +535,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     settle,
     // the HDRI and the water's ripples are in
     lit: Promise.all([lit, water.ready]),
-    // resolves after every shader is compiled and a few full frames have been drawn
+    // compiles every shader, then shows the scene; resolves once a few frames have been drawn
     warm: () => new Promise((done) => warming.waiting.push(done)),
     setHighlight: (on) => (state.highlightTarget = on ? 1 : 0),
     setBeacon: (on) => (state.beaconTarget = on ? 1 : 0),

@@ -28,6 +28,24 @@ const SOURCES = KEY
       glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     }
 
+/*
+ * Starts the downloads the map's first view waits on, into the browser's cache, before the map
+ * itself exists (while the page transition runs): the vector tiles' index, and the elevation
+ * tiles around `at` that the arrival view loads. The elevation server is slow to answer (over a
+ * second a tile), so they would otherwise hold the start of the map for seconds.
+ */
+export function prefetch([lng, lat]) {
+  const get = (url) => fetch(url).catch(() => {})
+  get(SOURCES.vector.url)
+  const dem = SOURCES.dem.tiles?.[0]
+  if (!dem) return
+  const tile = (z) => [Math.floor(((lng + 180) / 360) * 2 ** z), Math.floor(((1 - Math.asinh(Math.tan((lat * Math.PI) / 180)) / Math.PI) / 2) * 2 ** z)]
+  for (const [z, r] of [[14, 1], [13, 1], [11, 0], [5, 0]]) {
+    const [x, y] = tile(z)
+    for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) get(dem.replace('{z}', z).replace('{x}', x + dx).replace('{y}', y + dy))
+  }
+}
+
 const C = {
   ground: '#16372a',
   wood: '#18412a',

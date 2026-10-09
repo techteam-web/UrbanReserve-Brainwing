@@ -6,4 +6,4 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 
 setWorkerUrl(workerUrl)
 
-export { Map, Marker, MercatorCoordinate } from 'maplibre-gl'
+export { Map, Marker, MercatorCoordinate, prewarm } from 'maplibre-gl'
