@@ -36,6 +36,7 @@
   --chrome-top: clamp(4.25rem, 9vh, 5.75rem);
   --chrome-bot: clamp(3.75rem, 8vh, 5rem);
   --gutter: clamp(1.25rem, 4vw, 4.5rem);
+  --watermark-h: clamp(1.375rem, 3vh, 1.875rem);
   --mx: 0;
   --my: 0;
 }
@@ -222,9 +223,24 @@
   }
 }
 
-/* MapLibre's attribution, restyled for the dark Residences map and kept clear of the chrome. */
+/* Brainwing watermark: right gutter, just above the bottom chrome so it never sits under the nav buttons.
+   The logo is white; difference blending keeps it legible on the ivory screens as well as the dark ones. */
+.watermark {
+  position: fixed;
+  z-index: 92;
+  right: var(--gutter);
+  bottom: calc(var(--chrome-bot) + 0.25rem);
+  height: var(--watermark-h);
+  width: auto;
+  opacity: 0.6;
+  mix-blend-mode: difference;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* MapLibre's attribution, restyled for the dark Residences map and kept clear of the chrome and watermark. */
 .maplibregl-ctrl-bottom-right {
-  bottom: var(--chrome-bot);
+  bottom: calc(var(--chrome-bot) + var(--watermark-h) + 0.75rem);
   right: calc(var(--gutter) - 10px);
 }
 @media not ((width >= 64rem) and (orientation: landscape)) {

@@ -1,3 +1,6 @@
+import TOWER_A from './TowerA_data.js'
+import TOWER_B from './TowerB_data.js'
+
 const img = (n) => `/assets/img/${n}.webp`
 
 export const BRAND = {
@@ -280,8 +283,32 @@ export const SPECS = [
 
 export const SPEC_IMAGE = img('tower-dusk')
 
-// Equirectangular (2:1) panoramas: { id, label, src }. Empty until renders arrive.
-export const PANORAMAS = []
+/*
+ * The 360° views from each tower, floor by floor. The data are the Marzipano tool's exports and
+ * their tiles sit in public/pano/<tower>/tiles/<scene id>/. A scene's name ("DJI_0016_20th
+ * Floor_68.95M") gives the floor and its elevation; floors run from the top down, and `start` is
+ * the export's first scene.
+ */
+const floorOf = (tower) => (scene) => {
+  const [, name = scene.name, metres] = scene.name.match(/^DJI_\d+_(.+)_([\d.]+)M$/i) ?? []
+  return {
+    key: `${tower}/${scene.id}`,
+    label: /terrace/i.test(name) ? 'Terrace' : name,
+    height: Number(metres) || 0,
+    tiles: `/pano/${tower}/tiles/${scene.id}`,
+    data: scene,
+  }
+}
+export const TOWERS = [
+  ['towerA', 'Tower A', TOWER_A],
+  ['towerB', 'Tower B', TOWER_B],
+].map(([id, label, data]) => ({
+  id,
+  label,
+  settings: data.settings,
+  start: floorOf(id)(data.scenes[0]),
+  floors: data.scenes.map(floorOf(id)).sort((a, b) => b.height - a.height),
+}))
 
 // Images decoded behind the curtain before each screen is revealed.
 const I = (...names) => names.map(img)
@@ -291,7 +318,7 @@ export const ROUTE_IMAGES = {
   overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
   residences: [RESIDENCES[0].plan, RESIDENCES[0].key],
   amenities: [AMENITY_LEVELS[0].plan, ...AMENITY_LEVELS[0].photos.map((p) => p.image)],
-  views: [],
+  views: [`${TOWERS[0].start.tiles}/preview.jpg`],
   location: [LOCATION.map],
   specifications: [SPEC_IMAGE],
   enquire: [],

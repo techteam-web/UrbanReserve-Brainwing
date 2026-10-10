@@ -1,0 +1,22 @@
+{
+  "towerA/5-dji_0021_terrace_13447m": -0.1305,
+  "towerA/4-dji_0020_40th-floor_13135m": -0.13881,
+  "towerA/3-dji_0019_35th-floor_11575m": -0.13538,
+  "towerA/2-dji_0018_30th-floor_10015m": 0.00738,
+  "towerA/1-dji_0017_25th-floor_8455m": -0.00071,
+  "towerA/0-dji_0016_20th-floor_6895m": 0,
+  "towerA/9-dji_0015_15th-floor_5335m": 0.01147,
+  "towerA/8-dji_0014_10th-floor_3775m": 0.0096,
+  "towerA/7-dji_0013_5th-floor_2215m": 0.00193,
+  "towerA/6-dji_0012_e-deck_1525m": -0.00541,
+  "towerB/5-dji_0001_41st-floor-terrace_13447m": -0.14982,
+  "towerB/6-dji_0002_40th-floor_13135m": -0.13688,
+  "towerB/7-dji_0003_35th-floor_11575m": -0.14099,
+  "towerB/8-dji_0004_30th-floor_10015m": -0.13893,
+  "towerB/9-dji_0005_25th-floor_8455m": -0.14084,
+  "towerB/0-dji_0006_20th-floor_6895m": -0.13916,
+  "towerB/1-dji_0008_15th-floor_5335m": 0.05755,
+  "towerB/2-dji_0009_10th-floor_3775m": 0.06181,
+  "towerB/3-dji_0010_5th-floor_2215m": 0.36988,
+  "towerB/4-dji_0011_e-deck_1525m": 0.36851
+}
