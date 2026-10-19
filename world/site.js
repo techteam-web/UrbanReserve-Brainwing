@@ -20,6 +20,10 @@ export const PODIUM = BUILDING.podium
 export const TOWERS = BUILDING.towers
 export const TOWER_H = BUILDING.height
 
+// The building as plain solids, each an outline (plan metres) raised from the ground to `top`: what
+// is drawn over the scene (the clouds and their shadows) must not show through it.
+export const SOLIDS = [...TOWERS.map((t) => ({ outline: t.outline, top: TOWER_H })), { outline: PODIUM, top: BUILDING.deck }]
+
 const DRIVE = [
   [-30, -62],
   [-37, -49],

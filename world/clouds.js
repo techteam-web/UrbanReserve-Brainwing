@@ -2,8 +2,12 @@
  * Volumetric-looking clouds drawn over the map at half resolution. Every pixel casts a ray from
  * the map's real camera (scene metres, z up) against two horizontal cloud decks, so the clouds
  * keep true perspective and parallax, cast shadows on the ground, and white the view out while
- * the camera flies through a deck.
+ * the camera flies through a deck. Drawn over everything, they would also paint the shadows and
+ * clouds behind the building onto it, so the rays stop at the building, given as a few solids.
  */
+// the most solids, and walls between them, the shader takes
+const SOLIDS = 4
+const WALLS = 64
 const VERT = `#version 300 es
 in vec2 aPos;
 out vec2 vNdc;
@@ -24,8 +28,42 @@ uniform vec3 uHaze;
 uniform float uClear; // how far the clouds part in front of the subject
 uniform vec3 uFlow;   // where the camera is heading on screen (ndc), and how far it has flown in
 uniform int uOne;     // always 1; see fbm
+uniform vec3 uWall[${WALLS}];  // the building's walls: outward normal (x, y), and inside where dot(normal, p) <= z
+uniform vec4 uSolid[${SOLIDS}]; // a solid: its first wall, its wall count, its floor and roof (m)
+uniform int uSolids;
 
 vec3 centre;          // the ray through the middle of the screen
+
+// How far along the ray the building stands (1e9 where the ray misses it): its solids are upright
+// prisms, each clipped against its walls, its floor and its roof.
+float building(vec3 ro, vec3 rd) {
+  float best = 1e9;
+  for (int s = 0; s < ${SOLIDS}; s++) {
+    if (s >= uSolids) break;
+    vec4 solid = uSolid[s];
+    float tin = 0.0, tout = 1e9;
+    if (abs(rd.z) > 1e-6) {
+      float t0 = (solid.z - ro.z) / rd.z, t1 = (solid.w - ro.z) / rd.z;
+      tin = max(tin, min(t0, t1));
+      tout = min(tout, max(t0, t1));
+    } else if (ro.z < solid.z || ro.z > solid.w) continue;
+    int first = int(solid.x), walls = int(solid.y);
+    for (int i = 0; i < ${WALLS}; i++) {
+      if (i >= walls) break;
+      vec3 w = uWall[first + i];
+      float facing = dot(w.xy, rd.xy);
+      float room = w.z - dot(w.xy, ro.xy);
+      if (abs(facing) < 1e-6) {
+        if (room < 0.0) tin = 1e9;
+        continue;
+      }
+      float t = room / facing;
+      if (facing < 0.0) tin = max(tin, t); else tout = min(tout, t);
+    }
+    if (tin <= tout) best = min(best, tin);
+  }
+  return best;
+}
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) {
@@ -94,11 +132,15 @@ void main() {
   float tA, tB;
   vec4 A = deck(ro, rd, uA, vec2(7.0, 2.5), tA);
   vec4 B = deck(ro, rd, uB, vec2(12.0, 4.0), tB);
+  // cloud beyond the building is hidden by it
+  float tb = building(ro, rd);
+  if (tA > tb) { A = vec4(0.0); tA = -1.0; }
+  if (tB > tb) { B = vec4(0.0); tB = -1.0; }
   bool aFirst = tB < 0.0 || (tA > 0.0 && tA < tB);
   vec4 c = aFirst ? A + B * (1.0 - A.a) : B + A * (1.0 - B.a);
 
-  // cloud shadows on the ground under the low deck
-  if (rd.z < 0.0) {
+  // cloud shadows on the ground under the low deck, where the building doesn't stand in front of it
+  if (rd.z < 0.0 && -ro.z / rd.z < tb) {
     float tg = -ro.z / rd.z;
     vec2 g = ro.xy + rd.xy * tg;
     float s = density(g + uSun.xy / max(uSun.z, 0.2) * uA.x, uA, vec2(7.0, 2.5));
@@ -133,7 +175,34 @@ function shader(gl, type, src) {
   return s
 }
 
-export function createClouds(canvas, { scale = 0.5 } = {}) {
+/*
+ * The solids ({ outline: [[x, y], …] in scene metres, convex, top in metres; each standing on the
+ * ground}) as the shader's walls: each edge's outward normal and its offset along it.
+ */
+function packSolids(solids) {
+  const walls = new Float32Array(WALLS * 3)
+  const list = new Float32Array(SOLIDS * 4)
+  let n = 0
+  const used = solids.slice(0, SOLIDS)
+  used.forEach(({ outline, top }, s) => {
+    const first = n
+    // anticlockwise outlines have the outside on each edge's right
+    const turn = Math.sign(outline.reduce((a, [x, y], i) => a + x * outline[(i + 1) % outline.length][1] - outline[(i + 1) % outline.length][0] * y, 0)) || 1
+    outline.forEach(([ax, ay], i) => {
+      if (n >= WALLS) return
+      const [bx, by] = outline[(i + 1) % outline.length]
+      const len = Math.hypot(bx - ax, by - ay) || 1
+      const nx = (turn * (by - ay)) / len
+      const ny = (-turn * (bx - ax)) / len
+      walls.set([nx, ny, nx * ax + ny * ay], n * 3)
+      n++
+    })
+    list.set([first, n - first, 0, top], s * 4)
+  })
+  return { walls, list, count: used.length }
+}
+
+export function createClouds(canvas, { scale = 0.5, solids = [] } = {}) {
   const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false })
   if (!gl) return null
   // The shader is big and can take a second or more to compile. Where the browser offers
@@ -161,13 +230,14 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
     }
     status = 'ready'
     loc = gl.getAttribLocation(prog, 'aPos')
-    u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uClear', 'uFlow', 'uOne'].map((n) => [n, gl.getUniformLocation(prog, n)]))
+    u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uClear', 'uFlow', 'uOne', 'uWall', 'uSolid', 'uSolids'].map((n) => [n, gl.getUniformLocation(prog, n)]))
     return true
   }
   const buf = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, buf)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
   const inv = new Float32Array(16)
+  const building = packSolids(solids)
 
   /*
    * The in-cloud stream: how far the camera has flown into the view (in doublings of the wisps'
@@ -264,6 +334,9 @@ export function createClouds(canvas, { scale = 0.5 } = {}) {
       gl.uniform1f(u.uClear, params.clear)
       gl.uniform3f(u.uFlow, flow.x, flow.y, flow.phase)
       gl.uniform1i(u.uOne, 1)
+      gl.uniform3fv(u.uWall, building.walls)
+      gl.uniform4fv(u.uSolid, building.list)
+      gl.uniform1i(u.uSolids, building.count)
       gl.bindBuffer(gl.ARRAY_BUFFER, buf)
       gl.enableVertexAttribArray(loc)
       gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)

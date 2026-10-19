@@ -10,8 +10,8 @@ import { createBirds } from './birds'
 import { createDirector, heightScale } from './camera'
 import { SUN } from './light'
 import { toLocal } from './geo'
-import { HOTSPOTS, PLACES, VIEWS, isHood, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
-import { TOWER_H } from './site'
+import { HOTSPOTS, PLACES, VIEWS, enu, isHood, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
+import { SOLIDS, TOWER_H } from './site'
 import { Anchor, Badge, Hotspot, Pin, RouteLabel, Traveller } from './Markers'
 
 const LABELS = Object.fromEntries([...RESIDENCES.map((r, i) => [r.id, [i + 2, r.label]]), ['interiors', [5, 'Interiors']]])
@@ -106,7 +106,9 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       const cloudCanvas = document.createElement('canvas')
       cloudCanvas.className = 'pointer-events-none absolute inset-0 h-full w-full'
       map.getCanvas().after(cloudCanvas)
-      const clouds = createClouds(cloudCanvas, { scale: lite() ? 0.4 : 0.5 })
+      // (the building, in scene metres, so the clouds and their shadows never show through it)
+      const solids = SOLIDS.map((s) => ({ ...s, outline: s.outline.map((p) => enu(...p)) }))
+      const clouds = createClouds(cloudCanvas, { scale: lite() ? 0.4 : 0.5, solids })
       // birds over the neighbourhood fly low among the clouds, on a layer of their own beneath them
       const birdCanvas = document.createElement('canvas')
       birdCanvas.className = 'pointer-events-none absolute inset-0 h-full w-full'
