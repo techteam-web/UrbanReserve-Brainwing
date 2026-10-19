@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Observer } from 'gsap/Observer'
 import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
 import { useIntro, useTone, playIn } from '../hooks/useIntro'
+import { holdIntro } from '../app/gate'
 import { OVERVIEW } from '../data/content'
 import { Mark } from '../art/Brand'
 import Botanical from '../art/Botanical'
@@ -28,7 +29,7 @@ function Breaker() {
             ))}
           </h2>
           <p data-in className="copy mt-[3.5vh] max-w-md text-ink/75">{b.body}</p>
-          <p data-in className="label mt-[5vh] hidden text-forest-900/45 md:block">Scroll, swipe or use ← → to explore</p>
+          <p data-in className="label mt-[5vh] hidden text-forest-900/45 md:block">Scroll, swipe, use ← → or the arrows below to explore</p>
         </div>
         <div className="flex justify-center">
           <SunBirds className="w-[min(34vh,70vw)] lg:w-[min(66vh,40vw)]" />
@@ -191,16 +192,34 @@ const SLIDES = [
   { id: 'lobby', label: 'Lobby', tone: 'dark', C: Lobby },
 ]
 const PAGER_TONE = ['light', 'dark', 'light', 'dark', 'dark']
+// How long a slide stays before the next one comes in by itself (seconds, counted from the moment
+// it starts to arrive). Choosing a slide by hand starts the wait again.
+const DWELL = 8
 
+function Arrow({ flip = false }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`size-4 ${flip ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  )
+}
+
+/**
+ * The overview as a run of slides. They can be paged with the wheel, a swipe, the arrow keys or the
+ * controls along the foot of the screen, and they move on by themselves: the mark for the slide on
+ * show fills up with the time left, and the last leads back round to the first.
+ */
 export default function Overview() {
   const root = useRef(null)
+  const pager = useRef(null)
   const cur = useRef(0)
   const until = useRef(0)
   const [idx, setIdx] = useState(0)
   useTone(SLIDES[idx].tone)
   useIntro(root)
 
-  const show = useRef(() => {})
+  // the slide controls, once the slides are wired up: go(n, dir), next(), prev()
+  const nav = useRef({ go: () => {}, next: () => {}, prev: () => {} })
 
   useGSAP(
     (context, contextSafe) => {
@@ -208,14 +227,30 @@ export default function Overview() {
       gsap.set(slides.slice(1), { visibility: 'hidden' })
       if (!reduced()) gsap.to('[data-kb]', { scale: 1.08, duration: 18, ease: 'sine.inOut', yoyo: true, repeat: -1 })
 
-      const go = contextSafe((n) => {
+      // The wait before the next slide, shown filling along the active pager mark (--p).
+      const dwell = { p: 0 }
+      let timer = null
+      const arm = (delay = 0) => {
+        timer?.kill()
+        timer = gsap.fromTo(dwell, { p: 0 }, {
+          p: 1,
+          duration: DWELL,
+          delay,
+          ease: 'none',
+          onUpdate: () => pager.current?.style.setProperty('--p', dwell.p.toFixed(4)),
+          onComplete: () => next(),
+        })
+        return timer
+      }
+
+      const go = contextSafe((n, dir = n > cur.current ? 1 : -1) => {
         const now = performance.now()
         if (now < until.current || n === cur.current || n < 0 || n >= SLIDES.length) return
         const from = slides[cur.current]
         const to = slides[n]
-        const dir = n > cur.current ? 1 : -1
         cur.current = n
         setIdx(n)
+        arm()
         if (reduced()) {
           gsap.set(from, { visibility: 'hidden' })
           gsap.set(to, { visibility: 'visible' })
@@ -235,7 +270,12 @@ export default function Overview() {
           .to(from, { xPercent: -dir * 14, duration: 1.25, ease: 'expo.inOut' }, 0)
         playIn(to, 0.45)
       })
-      show.current = go
+      // the slides run in a ring: the last leads on to the first, and the first back to the last
+      const next = () => go((cur.current + 1) % SLIDES.length, 1)
+      const prev = () => go((cur.current - 1 + SLIDES.length) % SLIDES.length, -1)
+      nav.current = { go, next, prev }
+      // the first wait only starts once the screen is actually on show (not behind the full-screen gate)
+      holdIntro(arm(1.2))
 
       Observer.create({
         target: root.current,
@@ -244,23 +284,28 @@ export default function Overview() {
         tolerance: 40,
         lockAxis: true,
         // wheel pages slides; touch pages only on horizontal swipes so phone panes still scroll
-        onUp: (self) => self.event.type === 'wheel' && go(cur.current + 1),
-        onDown: (self) => self.event.type === 'wheel' && go(cur.current - 1),
-        onLeft: (self) => self.event.type !== 'wheel' && go(cur.current + 1),
-        onRight: (self) => self.event.type !== 'wheel' && go(cur.current - 1),
+        onUp: (self) => self.event.type === 'wheel' && next(),
+        onDown: (self) => self.event.type === 'wheel' && prev(),
+        onLeft: (self) => self.event.type !== 'wheel' && next(),
+        onRight: (self) => self.event.type !== 'wheel' && prev(),
       })
 
       const onKey = (e) => {
-        if (e.key === 'ArrowRight' || e.key === 'PageDown') go(cur.current + 1)
-        else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(cur.current - 1)
+        if (e.key === 'ArrowRight' || e.key === 'PageDown') next()
+        else if (e.key === 'ArrowLeft' || e.key === 'PageUp') prev()
       }
       window.addEventListener('keydown', onKey)
-      return () => window.removeEventListener('keydown', onKey)
+      return () => {
+        window.removeEventListener('keydown', onKey)
+        timer?.kill()
+      }
     },
     { scope: root },
   )
 
-  const pagerInk = PAGER_TONE[idx] === 'dark' ? 'text-ivory' : 'text-forest-900'
+  const dark = PAGER_TONE[idx] === 'dark'
+  const pagerInk = dark ? 'text-ivory' : 'text-forest-900'
+  const pagerSkin = dark ? 'border-ivory/15 bg-forest-950/40' : 'border-forest-900/15 bg-white/55'
 
   return (
     <section ref={root} className="screen bg-forest-950">
@@ -270,13 +315,30 @@ export default function Overview() {
         </div>
       ))}
 
-      <div className={`absolute bottom-0 left-1/2 z-10 flex h-(--chrome-bot) -translate-x-1/2 items-center gap-1 transition-colors duration-700 ${pagerInk}`}>
-        {SLIDES.map((s, i) => (
-          <button key={s.id} onClick={() => show.current(i)} className="group flex items-center gap-2 px-2 py-3" aria-label={`Show ${s.label}`} aria-current={idx === i}>
-            <span className={`h-px bg-current transition-all duration-700 ${idx === i ? 'w-10 opacity-100' : 'w-5 opacity-35 group-hover:opacity-80'}`} />
-            <span className={`label hidden ${idx === i ? 'md:inline' : ''}`}>{s.label}</span>
+      {/* the slide controls: arrows either side of a mark per slide, the active one filling up with
+          the time left before the next slide comes in on its own */}
+      <div ref={pager} className={`absolute bottom-0 left-1/2 z-10 flex h-(--chrome-bot) -translate-x-1/2 items-center transition-colors duration-700 ${pagerInk}`}>
+        <div role="group" aria-label="Overview slides" className={`flex items-center rounded-full border p-1 backdrop-blur-md transition-colors duration-700 ${pagerSkin}`}>
+          <button onClick={() => nav.current.prev()} className="grid size-9 shrink-0 place-items-center rounded-full transition-colors duration-300 hover:bg-current/10" aria-label="Previous slide">
+            <Arrow flip />
           </button>
-        ))}
+          <div className="flex items-center px-1">
+            {SLIDES.map((s, i) => {
+              const on = idx === i
+              return (
+                <button key={s.id} onClick={() => nav.current.go(i)} className="group flex items-center gap-2.5 px-2 py-2.5 sm:px-2.5" aria-label={`Show ${s.label}`} aria-current={on}>
+                  <span className={`relative h-[3px] overflow-hidden rounded-full bg-current/25 transition-[width,background-color] duration-700 ${on ? 'w-9' : 'w-3 group-hover:bg-current/50'}`}>
+                    {on && <span className="absolute inset-0 origin-left rounded-full bg-current" style={{ transform: 'scaleX(var(--p, 0))' }} />}
+                  </span>
+                  <span className={`label text-[max(0.58rem,9px)] transition-opacity duration-500 ${on ? '' : 'hidden opacity-60 group-hover:opacity-100 lg:inline'}`}>{s.label}</span>
+                </button>
+              )
+            })}
+          </div>
+          <button onClick={() => nav.current.next()} className="grid size-9 shrink-0 place-items-center rounded-full transition-colors duration-300 hover:bg-current/10" aria-label="Next slide">
+            <Arrow />
+          </button>
+        </div>
       </div>
     </section>
   )

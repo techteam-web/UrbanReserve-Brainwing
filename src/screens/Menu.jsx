@@ -2,12 +2,12 @@ import { useRef, useState } from 'react'
 import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
 import { useNav } from '../app/nav'
 import { useIntro } from '../hooks/useIntro'
-import { SECTIONS, ENQUIRE_PREVIEW, BRAND } from '../data/content'
+import { SECTIONS, BRAND } from '../data/content'
 import { Mark } from '../art/Brand'
 import Botanical from '../art/Botanical'
 import Terrain from '../art/Terrain'
 
-const ITEMS = [...SECTIONS, { id: 'enquire', label: 'Enquire', blurb: 'Plans, pricing and a private site visit.', preview: ENQUIRE_PREVIEW }]
+const ITEMS = SECTIONS
 
 export default function Menu() {
   const root = useRef(null)

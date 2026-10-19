@@ -21,8 +21,6 @@ export const SECTIONS = [
   { id: 'specifications', label: 'Specifications', blurb: 'Secure, automated and quietly sustainable.', preview: img('tower-day') },
 ]
 
-export const ENQUIRE_PREVIEW = img('lobby')
-
 export const LANDING = {
   eyebrow: 'A forest sanctuary in the city',
   image: img('forest-canopy'),
@@ -73,21 +71,23 @@ export const OVERVIEW = {
   },
 }
 
+// rooms: [name, size, u, v], where u/v place the room's centre on the plan image (0..1)
 export const RESIDENCES = [
   {
     id: '2bhk',
     label: '2 BHK',
     title: '2 BHK Flat Layout',
     plan: img('plan-2bhk'),
+    aspect: 1613 / 1340,
     key: img('key-2bhk'),
     rooms: [
-      ['Drawing room', "11'0\" × 14'0\""],
-      ['Dining', "10'0\" × 10'0\""],
-      ['Kitchen', "10'0\" × 8'0\""],
-      ['Bedroom 01', "11'0\" × 13'0\""],
-      ['Bedroom 02', "10'6\" × 13'0\""],
-      ['Dress', "4'7\" × 6'0\""],
-      ['Balcony', "6'0\" wide"],
+      ['Drawing room', "11'0\" × 14'0\"", 0.714, 0.155],
+      ['Dining', "10'0\" × 10'0\"", 0.643, 0.447],
+      ['Kitchen', "10'0\" × 8'0\"", 0.85, 0.482],
+      ['Bedroom 01', "11'0\" × 13'0\"", 0.4, 0.774],
+      ['Bedroom 02', "10'6\" × 13'0\"", 0.371, 0.292],
+      ['Dress', "4'7\" × 6'0\"", 0.593, 0.868],
+      ['Balcony', "6'0\" wide", 0.114, 0.533],
     ],
   },
   {
@@ -95,15 +95,16 @@ export const RESIDENCES = [
     label: '3 BHK',
     title: '3 BHK Flat Layout',
     plan: img('plan-3bhk'),
+    aspect: 1613 / 1357,
     key: img('key-3bhk'),
     rooms: [
-      ['Drawing room', "11'0\" × 18'0\""],
-      ['Dining', "10'0\" × 10'0\""],
-      ['Kitchen', "10'0\" × 8'0\""],
-      ['Bedroom 01', "11'0\" × 13'0\""],
-      ['Bedroom 02', "10'0\" × 13'0\""],
-      ['Dress', "4'7\" × 6'0\""],
-      ['Balcony', "6'0\" wide"],
+      ['Drawing room', "11'0\" × 18'0\"", 0.714, 0.17],
+      ['Dining', "10'0\" × 10'0\"", 0.65, 0.475],
+      ['Kitchen', "10'0\" × 8'0\"", 0.857, 0.51],
+      ['Bedroom 01', "11'0\" × 13'0\"", 0.4, 0.764],
+      ['Bedroom 02', "10'0\" × 13'0\"", 0.371, 0.297],
+      ['Dress', "4'7\" × 6'0\"", 0.6, 0.874],
+      ['Balcony', "6'0\" wide", 0.114, 0.526],
     ],
   },
   {
@@ -111,15 +112,16 @@ export const RESIDENCES = [
     label: '3 BHK Jodi',
     title: '3 BHK Jodi Flat Layout',
     plan: img('plan-3bhk-jodi'),
+    aspect: 1613 / 1340,
     key: img('key-3bhk-jodi'),
     rooms: [
-      ['Drawing room', "11'0\" × 14'0\""],
-      ['Dining', "10'0\" × 18'0\""],
-      ['Kitchen', "10'0\" × 8'0\""],
-      ['Bedroom 01', "11'0\" × 13'0\""],
-      ['Bedroom 02', "10'6\" × 13'0\""],
-      ['Dress', "4'7\" × 6'0\""],
-      ['Balcony', "6'0\" wide"],
+      ['Drawing room', "11'0\" × 14'0\"", 0.714, 0.172],
+      ['Dining', "10'0\" × 18'0\"", 0.643, 0.482],
+      ['Kitchen', "10'0\" × 8'0\"", 0.857, 0.516],
+      ['Bedroom 01', "11'0\" × 13'0\"", 0.4, 0.774],
+      ['Bedroom 02', "10'6\" × 13'0\"", 0.371, 0.301],
+      ['Dress', "4'7\" × 6'0\"", 0.6, 0.886],
+      ['Balcony', "6'0\" wide", 0.121, 0.533],
     ],
   },
 ]
@@ -210,7 +212,7 @@ export const AMENITY_LEVELS = [
 ]
 
 /*
- * Map positions for the Residences 3D map, pasted from Google Maps (checked 5 Oct 2026).
+ * Map positions for the Location 3D map, pasted from Google Maps (checked 5 Oct 2026).
  * To move a pin: right-click the spot on Google Maps, click the coordinates at the top of the menu
  * to copy them, and paste them into gmaps('…'). Google gives "lat, lng"; the map wants [lng, lat],
  * so gmaps() flips them.
@@ -314,12 +316,11 @@ export const TOWERS = [
 const I = (...names) => names.map(img)
 export const ROUTE_IMAGES = {
   landing: [LANDING.image],
-  menu: [...SECTIONS.map((s) => s.preview), ENQUIRE_PREVIEW],
+  menu: SECTIONS.map((s) => s.preview),
   overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
   residences: [RESIDENCES[0].plan, RESIDENCES[0].key],
   amenities: [AMENITY_LEVELS[0].plan, ...AMENITY_LEVELS[0].photos.map((p) => p.image)],
   views: [`${TOWERS[0].start.tiles}/preview.jpg`],
   location: [LOCATION.map],
   specifications: [SPEC_IMAGE],
-  enquire: [],
 }

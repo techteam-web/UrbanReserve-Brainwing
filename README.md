@@ -1,7 +1,7 @@
 # Urban Reserve
 
 A full-screen, non-scrolling presentation app for Urban Reserve, built from the brochure (`260916_URBAN RESERVE BROCHURE MANUAL V1.pdf`).
-It runs as Landing → Menu → one page per section, with a terrain-edged curtain transition between screens.
+It runs as Landing → Menu → one page per section, with a single torn-edged curtain drawn across the screen between pages.
 
 ```
 npm install
@@ -10,7 +10,7 @@ npm run dev
 
 ## Stack
 
-React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap/react` (DrawSVG, Observer, CustomEase), Marzipano for 360° views, and MapLibre GL with three.js for the Residences 3D map.
+React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap/react` (DrawSVG, Observer, CustomEase), Marzipano for 360° views, and MapLibre GL with three.js for the Location 3D map.
 
 ## Where things live
 
@@ -23,13 +23,13 @@ React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap
 | `src/app/FullscreenGate.jsx` | The full-screen gate. The app only runs in full screen, and the gate returns when you leave it |
 | `src/hooks/useIntro.js` | Shared entrance animation: `data-in`, `data-mask` and `data-draw` attributes |
 | `src/brand/*.svg` | Logo mark and lockup, extracted as vectors from page 1 of the brochure |
-| `src/world/` | The Residences 3D map: map style, the reserve in three.js, clouds, camera flights and stops |
+| `src/world/` | The Location 3D map: map style, the reserve in three.js, clouds, camera flights and stops |
 | `public/models/` | GLB models: `urban.glb` is the building (made by `npm run building`), the three tree variants line the plot, `bird.glb` is the flock, and the fishing boats and `Yatch1` sail the creek and the sea |
 | `public/hdri/` | Lighting for the 3D scene. `meadow_2_1k.exr` is loaded; the 4K original is only the source for it |
 
 ## Routes and hosting
 
-Each screen has its own path: `/`, `/menu`, `/overview`, `/residences`, `/amenities`, `/views`, `/location`, `/specifications` and `/enquire`. Anything else redirects to `/`.
+Each screen has its own path: `/`, `/menu`, `/overview`, `/residences`, `/amenities`, `/views`, `/location` and `/specifications`. Anything else redirects to `/`.
 
 Because these are real paths, the host must serve `index.html` for every route, or deep links and page reloads will return 404. `npm run dev` and `npm run preview` already do this. Netlify needs `/* /index.html 200` in `public/_redirects`. Vercel needs a rewrite of `/(.*)` to `/index.html`.
 
@@ -37,9 +37,9 @@ Because these are real paths, the host must serve `index.html` for every route, 
 
 Desktop layouts are designed at **1920×1080 (3xl)**. Landscape screens 1024px and wider scale that one canvas: `1rem` = 16px at 1080p, 21.3px at 2560×1440 (4xl) and 32px at 3840×2160 (5xl). Smaller laptops shrink proportionally, down to an 11px floor. Portrait tablets and phones get stacked layouts, where the content pane scrolls under fixed chrome.
 
-## Residences 3D map
+## Location 3D map
 
-The Residences page is a 3D map of the neighbourhood. It opens in cloud. The view clears over the city, then the camera dives through the high clouds, comes out underneath and settles on the reserve. The page's text and panels come in once the camera is through. The timings live in `ENTRANCE` in `src/world/World.jsx`. Each stop flies the camera to a new view: the two towers, each home (with its key-plan wing lit), the interiors, and every place in `LOCATION`. A place's road route from the reserve is drawn out along the streets, with its travel time and distance. On desktop, the neighbourhood's places are picked by kind from a bar along the foot of the screen (Schools, Hospitals, Shopping, Clubs, Connectivity); each kind opens a menu of its places, which leaves the map its full width. Every button on the page plays a click (`public/audio/Click.mp3`, through `src/app/sound.js`). Visitors can't steer the camera; it orbits slowly, and the cursor leans it a few degrees left and right.
+The Location page is a 3D map of the neighbourhood. It opens in cloud. The view clears over the city, then the camera dives through the high clouds, comes out underneath and settles on the reserve. The page's text and panels come in once the camera is through. The timings live in `ENTRANCE` in `src/world/World.jsx`. Each stop flies the camera to a new view: the reserve itself, the whole neighbourhood, and every place in `LOCATION`. A place's road route from the reserve is drawn out along the streets, with its travel time and distance. On desktop, the neighbourhood's places are picked by kind from a bar along the foot of the screen (Schools, Hospitals, Shopping, Clubs, Connectivity); a kind lights every place of that kind on the map, with their routes, and the card lists them to fly to one. Every button on the page plays a click (`public/audio/Click.mp3`, through `src/app/sound.js`). Visitors can't steer the camera; it orbits slowly, and the cursor leans it a few degrees left and right.
 
 A preloader holds the page until the whole scene is in: the map and terrain for the arrival and the descent, every model, the HDRI lighting and compiled shaders. It shows the progress and what is still loading. A slow connection keeps it waiting for as long as data is still arriving; only 20 s with nothing new lets the page start without the missing part (`src/world/World.jsx`).
 

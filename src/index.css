@@ -238,7 +238,7 @@
   user-select: none;
 }
 
-/* MapLibre's attribution, restyled for the dark Residences map and kept clear of the chrome and watermark. */
+/* MapLibre's attribution, restyled for the dark Location map and kept clear of the chrome and watermark. */
 .maplibregl-ctrl-bottom-right {
   bottom: calc(var(--chrome-bot) + var(--watermark-h) + 0.75rem);
   right: calc(var(--gutter) - 10px);

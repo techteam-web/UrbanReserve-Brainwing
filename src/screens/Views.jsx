@@ -123,7 +123,6 @@ export default function Views() {
                     className={`absolute left-0 top-1/2 h-px w-3 origin-left -translate-y-1/2 bg-gold transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${f.key === floor.key ? 'scale-x-100' : 'scale-x-0'}`}
                   />
                   <span className="font-display text-[clamp(1.05rem,2.3vh,1.5rem)] uppercase tracking-[0.06em]">{f.label}</span>
-                  <span className="ml-auto font-display text-[0.95rem] italic tabular-nums text-gold-lit">{f.height} m</span>
                 </button>
               ))}
             </div>

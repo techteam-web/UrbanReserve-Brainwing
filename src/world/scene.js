@@ -187,7 +187,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   const clip = new THREE.Matrix4()
   const tmp = { P: new THREE.Matrix4(), V: new THREE.Matrix4(), S: new THREE.Matrix4() }
   const pose = { clip, inverse: new THREE.Matrix4(), eye: camera.position, camera, time: 0 }
-  const state = { landmark: -1, beacon: 0, beaconTarget: 0 }
+  const state = { landmarks: [], beacon: 0, beaconTarget: 0 }
   // `sky` asks for the stand-in sky, needed only if the HDRI can't be had; `pmrem` prefilters them
   // all, once `filtering` (its shader compiled)
   const env = { target: null, sky: false, hdr: null, water: null, glass: null, pmrem: null, filtering: false }
@@ -240,18 +240,34 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   shadowCatcher.receiveShadow = true
   scene.add(shadowCatcher)
 
-  // fx: a beam of light over the reserve, and a pulse at the chosen place
+  // fx: a beam of light over the reserve, and a pulse at each chosen place
   const beacon = new THREE.Group()
   beacon.add(beam(5, 900, '#ffd58a', 0.9, 3), beam(16, 700, '#f0b46a', 0.45, 10))
   beacon.visible = false
   scene.add(beacon)
 
-  const pulse = new THREE.Group()
+  // the pulses are made as they are needed: one per place lit at once
   const ringMat = () => new THREE.MeshBasicMaterial({ color: '#ffb36b', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })
-  for (let i = 0; i < 3; i++) pulse.add(new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 96), ringMat()))
-  pulse.add(beam(2.2, 160, '#ffb36b', 0.9, 2.5))
-  pulse.visible = false
-  scene.add(pulse)
+  const pulses = []
+  const makePulse = () => {
+    const g = new THREE.Group()
+    for (let i = 0; i < 3; i++) g.add(new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 96), ringMat()))
+    g.add(beam(2.2, 160, '#ffb36b', 0.9, 2.5))
+    g.visible = false
+    scene.add(g)
+    pulses.push(g)
+    return g
+  }
+  // sits a pulse on the ground at each chosen place and parks the rest
+  const placePulses = () => {
+    state.landmarks.forEach((i, k) => {
+      const g = pulses[k] ?? makePulse()
+      const [x, y] = toLocal(SITE.at, places[i].at)
+      g.position.set(x, y, (map?.queryTerrainElevation(places[i].at) ?? ground) - ground + 0.5)
+      g.visible = true
+    })
+    for (const g of pulses.slice(state.landmarks.length)) g.visible = false
+  }
 
   // birds circle the towers in two loose flocks
   function addFlock(gltf, { radius, height, period, dir, scale, phase }) {
@@ -430,8 +446,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     shadowCatcher.position.z = top + 0.3
     water.settle(ground, (at) => map.queryTerrainElevation(at))
     boats?.settle(water.levelAt)
-    const lm = places[state.landmark]
-    if (lm) pulse.position.z = (map.queryTerrainElevation(lm.at) ?? ground) - ground + 0.5
+    placePulses()
   }
 
   function syncCamera(args) {
@@ -464,16 +479,18 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       b.material.uniforms.uTime.value = t
     })
 
-    pulse.visible = state.landmark >= 0
-    pulse.children.forEach((r, i) => {
-      if (r.material.uniforms) {
-        r.material.uniforms.uTime.value = t
-        return
-      }
-      const k = (t * 0.45 + i / 3) % 1
-      r.scale.setScalar(12 + k * 110)
-      r.material.opacity = (1 - k) * 0.8
-    })
+    for (const g of pulses) {
+      if (!g.visible) continue
+      g.children.forEach((r, i) => {
+        if (r.material.uniforms) {
+          r.material.uniforms.uTime.value = t
+          return
+        }
+        const k = (t * 0.45 + i / 3) % 1
+        r.scale.setScalar(12 + k * 110)
+        r.material.opacity = (1 - k) * 0.8
+      })
+    }
   }
 
   const layer = {
@@ -542,11 +559,10 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     // compiles every shader, then shows the scene; resolves once a few frames have been drawn
     warm: () => new Promise((done) => warming.waiting.push(done)),
     setBeacon: (on) => (state.beaconTarget = on ? 1 : 0),
-    setLandmark(i) {
-      state.landmark = i
-      if (i < 0) return
-      const [x, y] = toLocal(SITE.at, places[i].at)
-      pulse.position.set(x, y, (map?.queryTerrainElevation(places[i].at) ?? ground) - ground + 0.5)
+    // lights the places at these indices (into `places`), with a pulse on the ground at each
+    setLandmarks(ids) {
+      state.landmarks = ids
+      placePulses()
     },
     groundAt: (at) => (map?.queryTerrainElevation(at) ?? ground) - ground,
   }
