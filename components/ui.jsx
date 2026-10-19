@@ -112,3 +112,34 @@ export function Icon({ name, className = 'h-4 w-4' }) {
     </svg>
   )
 }
+
+// A pill of options with a sliding thumb behind the chosen one.
+export function Segmented({ items, value, onChange, tone = 'light', size = 'md', className = '' }) {
+  const i = Math.max(0, items.findIndex((t) => t.id === value))
+  const dark = tone === 'dark'
+  return (
+    <div role="tablist" className={`relative grid rounded-full p-1 ${dark ? 'bg-ivory/10' : 'bg-forest-900/[0.07]'} ${className}`} style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+      <span
+        aria-hidden="true"
+        className={`absolute inset-y-1 left-1 rounded-full shadow-sm transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] ${dark ? 'bg-gold' : 'bg-white'}`}
+        style={{ width: `calc((100% - 0.5rem) / ${items.length})`, transform: `translateX(${i * 100}%)` }}
+      />
+      {items.map((t) => {
+        const on = t.id === value
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(t.id)}
+            className={`label relative z-[1] truncate rounded-full transition-colors duration-300 active:scale-95 ${size === 'sm' ? 'px-2 py-2 text-[max(0.58rem,9px)]' : 'px-3 py-3'} ${
+              on ? (dark ? 'text-forest-950' : 'text-forest-900') : dark ? 'text-ivory/70' : 'text-forest-900/55'
+            }`}
+          >
+            {t.short ?? t.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

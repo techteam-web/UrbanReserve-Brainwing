@@ -12,7 +12,6 @@ import Amenities from './screens/Amenities'
 import Views from './screens/Views'
 import Location from './screens/Location'
 import Specifications from './screens/Specifications'
-import Enquire from './screens/Enquire'
 
 function Stage() {
   const { shown } = useNav()
@@ -28,7 +27,6 @@ function Stage() {
         <Route path="/views" element={<Views />} />
         <Route path="/location" element={<Location />} />
         <Route path="/specifications" element={<Specifications />} />
-        <Route path="/enquire" element={<Enquire />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </main>

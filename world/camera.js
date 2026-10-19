@@ -27,7 +27,7 @@ function hermite(s, y0, y1, m0, m1) {
 }
 
 /*
- * The only camera on the Residences map: visitors don't steer it. Stops fly it (climbing out
+ * The only camera on the Location map: visitors don't steer it. Stops fly it (climbing out
  * over long hops, banking through the turn), a slow orbit keeps it alive at rest, and the cursor
  * leans it gently left and right. All of it is composed into one jumpTo per frame.
  */

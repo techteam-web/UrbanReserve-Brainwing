@@ -10,7 +10,7 @@ import { createBirds } from './birds'
 import { createDirector, heightScale } from './camera'
 import { SUN } from './light'
 import { toLocal } from './geo'
-import { HOTSPOTS, PLACES, VIEWS, enu, isHood, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
+import { HOTSPOTS, PLACES, VIEWS, enu, isHood, kindOf, kindView, litPlaces, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
 import { SOLIDS, TOWER_H } from './site'
 import { Anchor, Badge, Hotspot, Pin, RouteLabel, Traveller } from './Markers'
 
@@ -25,16 +25,18 @@ const LABELS = Object.fromEntries([...RESIDENCES.map((r, i) => [r.id, [i + 2, r.
 const ENTRANCE = { height: 7000, pitch: 45, turn: 90, duration: 8, deck: { half: 850 }, dive: { at: 0.42, pitch: 32, linger: 1.3 } }
 
 /**
- * The Residences world: a MapLibre map with the reserve rendered in three.js, clouds over it and
+ * The Location world: a MapLibre map with the reserve rendered in three.js, clouds over it and
  * labels floating in the scene. The camera is never handed to the visitor: `stop` picks the view
- * and clicks on the scene call `onStop`. Places show their road route from the reserve.
+ * and clicks on the scene call `onStop`. Places show their road route from the reserve; a kind
+ * stop ('kind-<type>') lights every place of that kind, and their routes, together.
+ * `hotspots` false leaves out the numbered points on the towers that lead into each home.
  * `inset` ({ top, bottom } as fractions of the height) keeps the subject clear of UI covering the
  * map. Nothing is shown until the whole scene is in: `onProgress(fraction, next)` reports loading
  * (`next` names what is still coming). `onState` reports 'clouds' when everything has loaded and
  * the descent through the clouds starts, 'ready' once the camera is through them (the page's own
  * entrance can play), or 'failed' if WebGL is unavailable.
  */
-export default function World({ stop, inset, onStop, onState, onProgress }) {
+export default function World({ stop, inset, hotspots = true, onStop, onState, onProgress }) {
   const host = useRef(null)
   const overlay = useRef(null)
   const veil = useRef(null)
@@ -210,6 +212,11 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
 
       function viewFor(id) {
         if (id === 'neighbourhood') return { ...fit(neighbourhoodBounds(), SITE.heading - 14, 46), lift: 0, orbit: 0 }
+        const kind = kindOf(id)
+        if (kind) {
+          const v = kindView(kind)
+          return { ...v, ...fit(v.bounds, v.bearing, v.pitch) }
+        }
         const i = placeIndex(id)
         if (i >= 0) {
           const v = placeView(PLACES[i])
@@ -237,23 +244,25 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
         return { ...v, zoom }
       }
 
-      // Shows every road in the neighbourhood overview, or draws the chosen one out from the reserve.
-      function showRoutes(hood, i) {
-        const all = hood ? (i >= 0 ? 0.25 : 0.85) : 0
+      // Shows every road in the neighbourhood overview, or draws the chosen ones (one place's, or
+      // every place's of a kind) out from the reserve together.
+      function showRoutes(hood, lit) {
+        const all = hood ? (lit.length ? 0.25 : 0.85) : 0
         map.setPaintProperty('routes', 'line-opacity', all)
         map.setPaintProperty('routes-casing', 'line-opacity', all * 0.9)
-        for (const id of ROUTE_LAYERS.active) map.setFilter(id, ['==', ['get', 'i'], i])
+        for (const id of ROUTE_LAYERS.active) map.setFilter(id, ['in', ['get', 'i'], ['literal', lit]])
         route.tween?.kill()
         route.reveal.p = 0
         route.since = null
         map.setPaintProperty('route-active', 'line-gradient', routeReveal(0))
-        const path = PLACES[i]?.route?.path
+        // the traveller and its label run one drive at a time
+        const path = lit.length === 1 ? PLACES[lit[0]].route?.path : null
         route.track = path ? trackOf(path) : null
         // the old route's markers go with its line, before the camera moves off
         anchors.current.delete('traveller')
         anchors.current.delete('route-label')
-        if (!route.track) return
-        route.mid = along(route.track, route.track.len * 0.5, 0)
+        if (!lit.some((i) => PLACES[i].route)) return
+        if (route.track) route.mid = along(route.track, route.track.len * 0.5, 0)
         route.tween = gsap.to(route.reveal, {
           p: 1,
           duration: reduced() ? 0.01 : 1.8,
@@ -278,9 +287,10 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       function goTo(id, entrance) {
         const hood = isHood(id)
         const i = placeIndex(id)
+        const lit = litPlaces(id)
         reserve.setBeacon(hood)
-        reserve.setLandmark(i)
-        showRoutes(hood, i)
+        reserve.setLandmarks(lit)
+        showRoutes(hood, lit)
         // (the entrance settles the decks itself, once the camera is through them)
         if (clouds && !entrance) {
           gsap.to(clouds.params.a, { cover: covers(hood).a, duration: 3, overwrite: true })
@@ -434,6 +444,8 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
 
   const hood = isHood(stop)
   const active = placeIndex(stop)
+  // the places lit up: one, or every one of a kind
+  const lit = litPlaces(stop)
   const drive = PLACES[active]
 
   return (
@@ -452,14 +464,14 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
         <Anchor id="badge" register={register} show={hood}>
           <Badge />
         </Anchor>
-        {HOTSPOTS.map((h) => (
+        {hotspots && HOTSPOTS.map((h) => (
           <Anchor key={h.id} id={`hot-${h.id}`} register={register} show={!hood && stop !== h.id}>
             <Hotspot index={String(LABELS[h.id][0]).padStart(2, '0')} label={LABELS[h.id][1]} left={h.tower === 0} onClick={() => onStop(h.id)} />
           </Anchor>
         ))}
         {PLACES.map((p, i) => (
           <Anchor key={p.name} id={`place-${i}`} register={register} show={hood}>
-            <Pin place={p} active={active === i} dim={active >= 0 && active !== i} onClick={() => onStop(`place-${i}`)} />
+            <Pin place={p} active={lit.includes(i)} dim={lit.length > 0 && !lit.includes(i)} onClick={() => onStop(`place-${i}`)} />
           </Anchor>
         ))}
       </div>
