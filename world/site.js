@@ -1,5 +1,6 @@
 import { rng } from '../art/rng'
 import { SITE } from '../data/content'
+import BUILDING from '../data/building.json'
 import { rotate, toLngLat } from './geo'
 
 /*
@@ -13,24 +14,11 @@ export const PLOT = [
   [-32, -62],
 ]
 
-export const PODIUM = [
-  [-49, 21.5],
-  [59.5, 21.5],
-  [59.5, 12.5],
-  [32, -17.5],
-  [-20.5, -17.5],
-  [-49, 12.5],
-]
-
-export const PODIUM_H = 12.8
-export const FLOOR_H = 3.2
-export const FLOORS = 24
-export const TOWER_H = PODIUM_H + FLOORS * FLOOR_H
-
-export const TOWERS = [
-  { id: 'a', at: [-25, 2.5] },
-  { id: 'b', at: [24.5, 2.5] },
-]
+// The building (public/models/urban.glb) as measured by scripts/building.mjs: its podium's outline,
+// each tower's centre and west and east ends, and its height.
+export const PODIUM = BUILDING.podium
+export const TOWERS = BUILDING.towers
+export const TOWER_H = BUILDING.height
 
 const DRIVE = [
   [-30, -62],
@@ -47,8 +35,8 @@ const COURT = [
 ]
 export const PONDS = [
   { at: [-3, -46], r: [9, 4.2], rot: 12 },
-  { at: [11, -38], r: [6, 3], rot: -20 },
-  { at: [-20, -38], r: [4, 2.4], rot: 30 },
+  { at: [12, -40], r: [6, 3], rot: -20 },
+  { at: [-20, -41], r: [4, 2.4], rot: 30 },
 ]
 
 const inside = (pt, poly) => {
@@ -102,8 +90,6 @@ function scatter(r, count, spacing, accept, bounds, taken = []) {
   return out
 }
 
-const TOWER_HALF = [17.5, 15.5]
-const nearTower = (p, pad) => TOWERS.some(({ at }) => Math.abs(p[0] - at[0]) < TOWER_HALF[0] + pad && Math.abs(p[1] - at[1]) < TOWER_HALF[1] + pad)
 const inPond = (p) => PONDS.some(({ at, r }) => Math.hypot((p[0] - at[0]) / (r[0] + 2), (p[1] - at[1]) / (r[1] + 2)) < 1)
 
 // Tree placements: { at, z, h, rot, kind } in plan metres. Deterministic so the forest never reshuffles.
@@ -113,10 +99,8 @@ export function forest() {
   const free = (p) => inside(p, PLOT) && !inside(p, inset(PODIUM, -3)) && lineDist(p, DRIVE) > 4.5 && lineDist(p, COURT) > 5 && !inPond(p)
   const belt = scatter(r, 150, 6.2, (p) => free(p) && edgeDist(p, PLOT) < 13, box)
   const garden = scatter(r, 60, 6.8, (p) => free(p) && p[1] < -19, box, belt)
-  const deckArea = inset(PODIUM, 3)
-  const deck = scatter(r, 26, 7.5, (p) => inside(p, deckArea) && !nearTower(p, 2.5), box)
-  const tree = (z, h0, h1) => (at) => ({ at, z, h: h0 + r() * (h1 - h0), rot: r() * Math.PI * 2, kind: Math.floor(r() * 3) })
-  return [...belt.map(tree(0, 10, 17)), ...garden.map(tree(0, 8, 14)), ...deck.map(tree(PODIUM_H, 5, 8))]
+  const tree = (h0, h1) => (at) => ({ at, z: 0, h: h0 + r() * (h1 - h0), rot: r() * Math.PI * 2, kind: Math.floor(r() * 3) })
+  return [...belt.map(tree(10, 17)), ...garden.map(tree(8, 14))]
 }
 
 const geo = (p) => toLngLat(SITE.at, ...rotate(p, SITE.heading))

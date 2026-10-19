@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 // the glTF-only Draco decoder, as URLs Vite can serve in dev and fingerprint in the build
@@ -9,9 +10,8 @@ import dracoWasm from 'three/examples/jsm/libs/draco/gltf/draco_decoder.wasm?url
 import { MercatorCoordinate } from './maplibre'
 import { reduced } from '../gsap/gsapConfig'
 import { SITE } from '../data/content'
-import { forest, PODIUM, PODIUM_H, PONDS, TOWERS, FLOOR_H } from './site'
-import { balconies, buildHighlight, buildTower } from './tower'
-import { duskSky, facadeMaps, podiumMap, skyEnvironment } from './textures'
+import { forest, PONDS } from './site'
+import { duskSky, glassSky, skyEnvironment } from './textures'
 import { rotate, toLngLat, toLocal } from './geo'
 import { HDRI, SUN, SUN_AZ } from './light'
 import { createBoats, createWater, prepareBoat } from './water'
@@ -29,7 +29,7 @@ const loader = (() => {
   return () => {
     if (l) return l
     const draco = new DRACOLoader().setDecoderPath({ js: dracoJs, wasm: dracoWasm })
-    l = new GLTFLoader().setDRACOLoader(draco)
+    l = new GLTFLoader().setDRACOLoader(draco).setMeshoptDecoder(MeshoptDecoder)
     return l
   }
 })()
@@ -63,7 +63,7 @@ function loadHdri(url) {
 }
 
 // Parsed once and reused on later visits; each scene clones what it changes.
-const MODELS = ['Tree-Variant-1', 'Tree-Variant-2', 'Tree-Variant-3', 'Tree-v1', 'bird', 'FishingBoat', 'FishingBoat2', 'low_poly_fishing_boat-v1', 'Yatch1']
+const MODELS = ['urban', 'Tree-Variant-1', 'Tree-Variant-2', 'Tree-Variant-3', 'bird', 'FishingBoat', 'FishingBoat2', 'low_poly_fishing_boat-v1', 'Yatch1']
 let models
 // `onEach(done, total)` hears about every model as it arrives (at once on later visits)
 function loadModels(onEach) {
@@ -109,13 +109,26 @@ function unitModel(gltf) {
   return parts.length > 1 ? { geometry: mergeGeometries(parts.map((p) => p.g), true), material: parts.map((p) => leafy(p.m)) } : { geometry: parts[0].g, material: leafy(parts[0].m) }
 }
 
-function instanced(model, items, castShadow = true) {
+// The building's looks, by the material names scripts/building.mjs gives it (its export has no
+// textures). The metal ones (glass and frames) reflect a sky of their own (glassSky). Walls and
+// glass are two-sided, as in the export, whose panes don't all face out.
+const LOOKS = {
+  wall: { color: '#ece4d6', roughness: 0.78, emissive: '#ece4d6', emissiveIntensity: 0.12, side: THREE.DoubleSide },
+  trim: { color: '#9d978b', roughness: 0.6 },
+  frame: { color: '#3d3226', roughness: 0.4, metalness: 0.7, envMapIntensity: 1.1 },
+  glass: { color: '#b8cad6', roughness: 0.05, metalness: 1, envMapIntensity: 1, side: THREE.DoubleSide },
+  roof: { color: '#8a8f84', roughness: 0.9 },
+  green: { color: '#6f9d5c', roughness: 0.95 },
+  paving: { color: '#d3c6ab', roughness: 0.85 },
+}
+
+function instanced(model, items) {
   const mesh = new THREE.InstancedMesh(model.geometry, model.material, items.length)
   const m = new THREE.Matrix4()
   const q = new THREE.Quaternion()
   const z = new THREE.Vector3(0, 0, 1)
   items.forEach((t, i) => mesh.setMatrixAt(i, m.compose(new THREE.Vector3(t.at[0], t.at[1], t.z), q.setFromAxisAngle(z, t.rot), new THREE.Vector3(t.h, t.h, t.h))))
-  mesh.castShadow = castShadow
+  mesh.castShadow = true
   mesh.receiveShadow = true
   mesh.userData.items = items
   return mesh
@@ -174,11 +187,13 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   const clip = new THREE.Matrix4()
   const tmp = { P: new THREE.Matrix4(), V: new THREE.Matrix4(), S: new THREE.Matrix4() }
   const pose = { clip, inverse: new THREE.Matrix4(), eye: camera.position, camera, time: 0 }
-  const state = { highlight: 0, highlightTarget: 0, landmark: -1, beacon: 0, beaconTarget: 0 }
+  const state = { landmark: -1, beacon: 0, beaconTarget: 0 }
   // `sky` asks for the stand-in sky, needed only if the HDRI can't be had; `pmrem` prefilters them
   // all, once `filtering` (its shader compiled)
-  const env = { target: null, sky: false, hdr: null, water: null, pmrem: null, filtering: false }
+  const env = { target: null, sky: false, hdr: null, water: null, glass: null, pmrem: null, filtering: false }
   let map, renderer, boats, ground = 0, last = performance.now(), disposed = false
+  // the building's metal materials, which reflect env.glass
+  const metals = []
   // resolves once the HDRI lights the scene (or has failed, leaving the stand-in sky)
   let lightUp
   const lit = new Promise((r) => (lightUp = r))
@@ -202,20 +217,26 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   site.rotation.z = -SITE.heading * RAD
   scene.add(site)
 
-  // light: the HDRI does the soft fill and reflections; this sun gives the shadows
+  // light: the HDRI does the soft fill and reflections, the sun the modelling and the shadows, and a
+  // faint cool light from the other side keeps the faces the sun misses from going flat
   const hemi = new THREE.HemisphereLight('#dfeefa', '#5d7a52', 0.35)
   hemi.position.set(0, 0, 1)
-  const sun = new THREE.DirectionalLight('#ffe2bc', 2.5)
+  const sun = new THREE.DirectionalLight('#ffe2bc', 3)
   sun.position.copy(SUN_DIR).multiplyScalar(700)
-  scene.add(hemi, sun, sun.target)
+  const fill = new THREE.DirectionalLight('#d2e2f5', 0.5)
+  fill.position.set(-SUN[0], -SUN[1], 0.8).multiplyScalar(700)
+  scene.add(hemi, sun, sun.target, fill)
   if (shadows) {
     sun.castShadow = true
-    Object.assign(sun.shadow.camera, { left: -190, right: 190, top: 190, bottom: -190, near: 50, far: 1600 })
+    // seen from the sun the towers' long shadows fall behind them, so this covers the whole plot
+    Object.assign(sun.shadow.camera, { left: -150, right: 150, top: 150, bottom: -150, near: 50, far: 1600 })
     sun.shadow.mapSize.set(2048, 2048)
     sun.shadow.bias = -0.0004
     sun.shadow.normalBias = 0.5
+    sun.shadow.radius = 2.5
   }
-  const shadowCatcher = new THREE.Mesh(new THREE.PlaneGeometry(520, 520), new THREE.ShadowMaterial({ opacity: 0.32, color: '#1c2a20' }))
+  // the ground for the shadows: wide enough for the towers' (about 280 m long in this low sun)
+  const shadowCatcher = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.ShadowMaterial({ opacity: 0.62, color: '#07120c' }))
   shadowCatcher.receiveShadow = true
   scene.add(shadowCatcher)
 
@@ -265,48 +286,31 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   }
 
   async function build() {
-
-    const facade = new THREE.MeshStandardMaterial({ ...facadeMaps({ bay: 1.6, floor: FLOOR_H }), color: '#ffffff', metalness: 1, roughness: 1, emissive: '#ffffff', emissiveIntensity: 0.4, envMapIntensity: 1.1 })
-    const stone = new THREE.MeshStandardMaterial({ color: '#ece4d6', roughness: 0.75, metalness: 0 })
-    const bronze = new THREE.MeshStandardMaterial({ color: '#b48a4f', roughness: 0.32, metalness: 1, envMapIntensity: 1.1 })
-    const roof = new THREE.MeshStandardMaterial({ color: '#7f8d7f', roughness: 0.9 })
-    const core = new THREE.MeshStandardMaterial({ color: '#d8cfbf', roughness: 0.7 })
-    const lawn = new THREE.MeshStandardMaterial({ color: '#6f9d5c', roughness: 0.95 })
-    const podiumSide = new THREE.MeshStandardMaterial({ map: podiumMap({ floor: FLOOR_H }), roughness: 0.8 })
-
-    // podium (four parking levels under the E-Deck), sunk a little so terrain never shows under it
-    const podiumShape = new THREE.Shape(PODIUM.map(([x, y]) => new THREE.Vector2(x, y)))
-    const podium = new THREE.Mesh(new THREE.ExtrudeGeometry(podiumShape, { depth: PODIUM_H + 4, bevelEnabled: false }).translate(0, 0, -4), [lawn, podiumSide])
-    podium.castShadow = podium.receiveShadow = true
-    site.add(podium)
-    const deck = new THREE.Mesh(new THREE.PlaneGeometry(15, 25), new THREE.MeshStandardMaterial({ color: '#e0d4b8', roughness: 0.8 }))
-    deck.position.set(0, 3, PODIUM_H + 0.05)
-    deck.receiveShadow = true
-    const pool = new THREE.Mesh(new THREE.PlaneGeometry(8.5, 19), new THREE.MeshStandardMaterial({ color: '#2a9fb0', roughness: 0.04, metalness: 0.2, envMapIntensity: 1.4 }))
-    pool.position.set(0, 3, PODIUM_H + 0.1)
-    site.add(deck, pool)
+    const pondWater = new THREE.MeshStandardMaterial({ color: '#2a9fb0', roughness: 0.04, metalness: 0.2, envMapIntensity: 1.4 })
     for (const p of PONDS) {
-      const pond = new THREE.Mesh(new THREE.CircleGeometry(1, 40), pool.material)
+      const pond = new THREE.Mesh(new THREE.CircleGeometry(1, 40), pondWater)
       pond.scale.set(p.r[0], p.r[1], 1)
       pond.rotation.z = -p.rot * RAD
       pond.position.set(p.at[0], p.at[1], 0.35)
       site.add(pond)
     }
 
-    state.highlights = []
-    const towers = TOWERS.map((t) => {
-      const g = buildTower({ facade, stone, bronze, roof, core })
-      g.position.set(t.at[0], t.at[1], 0)
-      const h = buildHighlight()
-      h.visible = false
-      g.add(h)
-      state.highlights.push(h)
-      site.add(g)
-      return g
-    })
-
     const gltf = await assets
     if (disposed) return
+
+    // the towers on their podium, in plan metres but y-up, stood up
+    const building = gltf.urban.scene.clone()
+    building.rotation.x = Math.PI / 2
+    building.traverse((o) => {
+      if (!o.isMesh) return
+      const look = o.material.name
+      o.material = new THREE.MeshStandardMaterial(LOOKS[look])
+      if (LOOKS[look]?.metalness) metals.push(o.material)
+      o.castShadow = o.receiveShadow = true
+    })
+    site.add(building)
+    dressMetals()
+
     const kinds = ['Tree-Variant-1', 'Tree-Variant-2', 'Tree-Variant-3'].map((n) => unitModel(gltf[n]))
     const trees = forest()
     state.trees = kinds.map((model, k) => {
@@ -314,13 +318,6 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       site.add(mesh)
       return mesh
     })
-
-    // the vertical forest: small trees on the alternating corner balconies
-    const shrub = unitModel(gltf['Tree-v1'])
-    const spots = balconies()
-    for (const tower of towers) {
-      tower.add(instanced(shrub, spots.map((s, i) => ({ at: [s.at[0] + s.out[0] * 0.2, s.at[1] + s.out[1] * 0.2], z: s.z + 0.15, h: 2.6 + (i % 3) * 0.5, rot: i * 1.7 })), false))
-    }
 
     addFlock(gltf.bird, { radius: 150, height: 120, period: 46, dir: 1, scale: 0.42, phase: 0 })
     addFlock(gltf.bird, { radius: 95, height: 72, period: 34, dir: -1, scale: 0.34, phase: 2.1 })
@@ -333,6 +330,15 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     scene.add(boats.group)
     boats.settle(water.levelAt)
     map?.triggerRepaint()
+  }
+
+  // The building's metal reflects a sky of its own (glassSky) once it is prefiltered.
+  function dressMetals() {
+    if (!env.glass) return
+    for (const m of metals) {
+      m.envMap = env.glass.texture
+      m.needsUpdate = true
+    }
   }
 
   /*
@@ -359,7 +365,8 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
 
   // Environment maps are prefiltered here, inside the map's render call, where MapLibre expects the
   // GL state to change, one a frame so no single frame does it all: the water's golden sky first,
-  // then the HDRI once it has decoded (or a stand-in sky if it can't be had).
+  // then the building's glass sky, then the HDRI once it has decoded (or a stand-in sky if it can't be
+  // had).
   function updateEnvironment() {
     if (!env.pmrem) {
       env.pmrem = new THREE.PMREMGenerator(renderer)
@@ -373,6 +380,12 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       env.water = duskSky(env.pmrem, SUN_DIR)
       water.mesh.material.envMap = env.water.texture
       water.mesh.material.needsUpdate = true
+      return
+    }
+    if (!env.glass) {
+      renderer.resetState()
+      env.glass = glassSky(env.pmrem, SUN_DIR)
+      dressMetals()
       return
     }
     if (!env.sky && !env.hdr) return
@@ -444,16 +457,6 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     water.update(t)
     boats?.update(t)
 
-    approach('highlight', state.highlightTarget, dt)
-    for (const h of state.highlights ?? []) {
-      const { fill, edges, band, height } = h.userData
-      h.visible = state.highlight > 0.01
-      fill.opacity = state.highlight * (0.08 + 0.05 * Math.sin(t * 2.4))
-      edges.opacity = state.highlight * 0.95
-      band.material.opacity = state.highlight * 0.9
-      band.position.z = PODIUM_H + ((t * 0.12) % 1) * height
-    }
-
     approach('beacon', state.beaconTarget, dt, 2)
     beacon.visible = state.beacon > 0.01
     beacon.children.forEach((b) => {
@@ -524,6 +527,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       })
       env.target?.dispose()
       env.water?.dispose()
+      env.glass?.dispose()
       env.hdr?.dispose()
       env.pmrem?.dispose()
       renderer?.dispose()
@@ -537,7 +541,6 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     lit: Promise.all([lit, water.ready]),
     // compiles every shader, then shows the scene; resolves once a few frames have been drawn
     warm: () => new Promise((done) => warming.waiting.push(done)),
-    setHighlight: (on) => (state.highlightTarget = on ? 1 : 0),
     setBeacon: (on) => (state.beaconTarget = on ? 1 : 0),
     setLandmark(i) {
       state.landmark = i

@@ -1,113 +1,4 @@
 import * as THREE from 'three'
-import { rng } from '../art/rng'
-
-const canvas = (w, h = w) => {
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  return [c, c.getContext('2d')]
-}
-
-const texture = (c, srgb) => {
-  const t = new THREE.CanvasTexture(c)
-  t.wrapS = t.wrapT = THREE.RepeatWrapping
-  t.anisotropy = 8
-  if (srgb) t.colorSpace = THREE.SRGBColorSpace
-  return t
-}
-
-/*
- * Curtain-wall facade: 16 bays × 16 floors per tile, with stone slab bands, bronze mullions and
- * randomly lit interiors. Returns colour, emissive and roughness/metalness (G/B) maps.
- * ExtrudeGeometry side UVs are in metres, so `repeat` maps one tile to bay × floor metres.
- */
-export function facadeMaps({ bay, floor, seed = 3 }) {
-  const N = 16
-  const S = 64
-  const [cc, c] = canvas(N * S)
-  const [ec, e] = canvas(N * S)
-  const [mc, m] = canvas(N * S)
-  const r = rng(seed)
-  const slab = 10
-  e.fillStyle = '#000'
-  e.fillRect(0, 0, N * S, N * S)
-  for (let fy = 0; fy < N; fy++) {
-    for (let bx = 0; bx < N; bx++) {
-      const x = bx * S
-      const y = fy * S
-      // glass, a little lighter towards the top of each pane like a sky reflection
-      const g = c.createLinearGradient(0, y + slab, 0, y + S)
-      g.addColorStop(0, '#41606a')
-      g.addColorStop(1, '#1d3036')
-      c.fillStyle = g
-      c.fillRect(x, y, S, S)
-      m.fillStyle = 'rgb(0, 26, 230)'
-      m.fillRect(x, y, S, S)
-      // interior light
-      const k = r()
-      if (k < 0.42) {
-        const warm = k < 0.36
-        const a = 0.35 + r() * 0.65
-        const ig = e.createLinearGradient(0, y + slab, 0, y + S)
-        ig.addColorStop(0, warm ? `rgba(255, 196, 120, ${a * 0.55})` : `rgba(190, 215, 255, ${a * 0.35})`)
-        ig.addColorStop(1, warm ? `rgba(255, 214, 150, ${a})` : `rgba(200, 225, 255, ${a * 0.6})`)
-        e.fillStyle = ig
-        const w = r() < 0.3 ? S * 2 : S
-        e.fillRect(x + 3, y + slab, w - 6, S - slab)
-        c.fillStyle = warm ? 'rgba(120, 90, 60, 0.35)' : 'rgba(80, 95, 120, 0.3)'
-        c.fillRect(x + 3, y + slab, w - 6, S - slab)
-      }
-    }
-    // slab band at the top of each canvas row (the floor line once mapped onto the wall)
-    c.fillStyle = '#ddd4c4'
-    c.fillRect(0, fy * S, N * S, slab)
-    m.fillStyle = 'rgb(0, 210, 0)'
-    m.fillRect(0, fy * S, N * S, slab)
-    e.fillStyle = '#000'
-    e.fillRect(0, fy * S, N * S, slab)
-  }
-  // mullions and a transom
-  for (let bx = 0; bx <= N; bx++) {
-    c.fillStyle = '#5e4d36'
-    c.fillRect(bx * S - 2, 0, 4, N * S)
-    m.fillStyle = 'rgb(0, 90, 255)'
-    m.fillRect(bx * S - 2, 0, 4, N * S)
-    e.fillStyle = '#000'
-    e.fillRect(bx * S - 2, 0, 4, N * S)
-  }
-  for (let fy = 0; fy < N; fy++) {
-    c.fillStyle = 'rgba(94, 77, 54, 0.8)'
-    c.fillRect(0, fy * S + slab + 34, N * S, 2)
-  }
-  const maps = { map: texture(cc, true), emissiveMap: texture(ec, true), roughnessMap: texture(mc), metalnessMap: null }
-  maps.metalnessMap = maps.roughnessMap
-  const repeat = [1 / (N * bay), 1 / (N * floor)]
-  for (const t of [maps.map, maps.emissiveMap, maps.roughnessMap]) {
-    t.repeat.set(...repeat)
-    t.offset.set(0, -repeat[1])
-  }
-  return maps
-}
-
-// Podium: parking levels behind planted stone bands.
-export function podiumMap({ floor }) {
-  const [cc, c] = canvas(256, 256)
-  c.fillStyle = '#1f2b27'
-  c.fillRect(0, 0, 256, 256)
-  for (let i = 0; i < 4; i++) {
-    const y = i * 64
-    c.fillStyle = '#cfc6b6'
-    c.fillRect(0, y, 256, 14)
-    c.fillStyle = '#3f6a45'
-    c.fillRect(0, y + 14, 256, 7)
-    c.fillStyle = '#2f5537'
-    for (let x = 0; x < 256; x += 9) c.fillRect(x, y + 21, 5, 4 + ((x * 7) % 11))
-  }
-  const t = texture(cc, true)
-  t.repeat.set(1 / 24, 1 / (4 * floor))
-  t.offset.set(0, -1 / (4 * floor))
-  return t
-}
 
 // A plain daylight sky, for reflections should the HDRI fail to load. It is built the HDRI's way
 // (y up, sun where the HDRI's sun is) so the same environment rotation suits both. Prefiltered
@@ -162,6 +53,46 @@ export function duskSky(pmrem, sunDir) {
         vec3 col = h > 0.0 ? mix(horizon, zenith, pow(h, 0.45)) : mix(horizon * 0.5, ground, pow(-h, 0.35));
         float s = max(dot(d, uSun), 0.0);
         col += vec3(1.0, 0.75, 0.45) * (pow(s, 600.0) * 14.0 + pow(s, 12.0) * 0.5);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  })
+  scene.add(new THREE.Mesh(geo, mat))
+  const target = pmrem.fromScene(scene, 0, 0.1, 100)
+  geo.dispose()
+  mat.dispose()
+  return target
+}
+
+// The sky the building's glass and metal reflect: a clear blue that turns gold at the horizon,
+// with the sun's glow and a few faint streaks of cloud, mirrored about the horizon. Seen from up
+// here a window faces the lower half of whatever it reflects, so a sky that is sky all round keeps
+// every pane bright. Built z-up like duskSky, so it needs no turning.
+export function glassSky(pmrem, sunDir) {
+  const scene = new THREE.Scene()
+  const geo = new THREE.SphereGeometry(10, 64, 32)
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { uSun: { value: sunDir.clone().normalize() } },
+    vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      varying vec3 vDir;
+      uniform vec3 uSun;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + 1.0), f.x), f.y);
+      }
+      void main() {
+        vec3 d = normalize(vDir);
+        float h = abs(d.z);
+        vec3 col = mix(vec3(0.75, 0.62, 0.48), vec3(0.1, 0.28, 0.6), pow(h, 0.25));
+        // long thin cloud streaks low in the sky, on a plane overhead (so no seam)
+        vec2 p = d.xy / (h + 0.2) * vec2(1.2, 4.0);
+        float cloud = noise(p) * 0.65 + noise(p * 2.3 + 7.0) * 0.35;
+        col = mix(col, vec3(0.85, 0.82, 0.78), smoothstep(0.62, 0.9, cloud) * smoothstep(0.02, 0.12, h) * (1.0 - smoothstep(0.3, 0.6, h)) * 0.35);
+        float s = max(dot(vec3(d.xy, h), uSun), 0.0);
+        col += vec3(1.0, 0.76, 0.48) * (pow(s, 10.0) * 0.6 + pow(s, 300.0) * 3.0);
         gl_FragColor = vec4(col, 1.0);
       }`,
   })

@@ -276,7 +276,6 @@ export default function World({ stop, inset, onStop, onState, onProgress }) {
       function goTo(id, entrance) {
         const hood = isHood(id)
         const i = placeIndex(id)
-        reserve.setHighlight(id in VIEWS && id !== 'reserve')
         reserve.setBeacon(hood)
         reserve.setLandmark(i)
         showRoutes(hood, i)
