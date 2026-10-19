@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Curtain from './Curtain'
 import { NavContext, direction, idFor, isPage, pathFor, setIntroDelay } from './nav'
 import { decodeImages } from './decode'
+import { setTransition } from './gate'
 import { ROUTE_IMAGES } from '../data/content'
 
 /**
@@ -30,6 +31,7 @@ function createDirector(initialId, setShown) {
         return
       }
       d.busy = true
+      setTransition(true)
       // the menu's preview panel is desktop-only, so phones skip decoding its seven photos
       const desktop = window.matchMedia('(min-width: 64rem) and (orientation: landscape)').matches
       const ready = decodeImages(to === 'menu' && !desktop ? [] : (ROUTE_IMAGES[to] ?? []))
@@ -45,6 +47,7 @@ function createDirector(initialId, setShown) {
       )
       tl.eventCallback('onComplete', () => {
         d.busy = false
+        setTransition(false)
         const next = d.queued
         d.queued = null
         if (next) d.run(next)

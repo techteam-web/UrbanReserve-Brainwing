@@ -36,6 +36,7 @@
   --chrome-top: clamp(4.25rem, 9vh, 5.75rem);
   --chrome-bot: clamp(3.75rem, 8vh, 5rem);
   --gutter: clamp(1.25rem, 4vw, 4.5rem);
+  --watermark-h: clamp(1.375rem, 3vh, 1.875rem);
   --mx: 0;
   --my: 0;
 }
@@ -220,4 +221,49 @@
   .drift {
     translate: none;
   }
+}
+
+/* Brainwing watermark: right gutter, just above the bottom chrome so it never sits under the nav buttons.
+   The logo is white; difference blending keeps it legible on the ivory screens as well as the dark ones. */
+.watermark {
+  position: fixed;
+  z-index: 92;
+  right: var(--gutter);
+  bottom: calc(var(--chrome-bot) + 0.25rem);
+  height: var(--watermark-h);
+  width: auto;
+  opacity: 0.6;
+  mix-blend-mode: difference;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* MapLibre's attribution, restyled for the dark Residences map and kept clear of the chrome and watermark. */
+.maplibregl-ctrl-bottom-right {
+  bottom: calc(var(--chrome-bot) + var(--watermark-h) + 0.75rem);
+  right: calc(var(--gutter) - 10px);
+}
+@media not ((width >= 64rem) and (orientation: landscape)) {
+  .maplibregl-ctrl-bottom-right {
+    top: var(--chrome-top);
+    bottom: auto;
+  }
+}
+.maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-attrib {
+  background: rgb(13 35 29 / 0.55);
+  color: rgb(250 247 242 / 0.5);
+  font: 400 10px/1.4 var(--font-sans);
+  backdrop-filter: blur(6px);
+}
+.maplibregl-map .maplibregl-ctrl-attrib a {
+  color: rgb(250 247 242 / 0.6);
+}
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact-show,
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  border-radius: 999px;
+  background: rgb(13 35 29 / 0.55);
+}
+.maplibregl-map .maplibregl-ctrl-attrib-button {
+  filter: invert(1) opacity(0.6);
+  background-color: transparent;
 }

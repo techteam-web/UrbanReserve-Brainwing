@@ -1,3 +1,6 @@
+import TOWER_A from './TowerA_data.js'
+import TOWER_B from './TowerB_data.js'
+
 const img = (n) => `/assets/img/${n}.webp`
 
 export const BRAND = {
@@ -206,28 +209,48 @@ export const AMENITY_LEVELS = [
   },
 ]
 
+/*
+ * Map positions for the Residences 3D map, pasted from Google Maps (checked 5 Oct 2026).
+ * To move a pin: right-click the spot on Google Maps, click the coordinates at the top of the menu
+ * to copy them, and paste them into gmaps('…'). Google gives "lat, lng"; the map wants [lng, lat],
+ * so gmaps() flips them.
+ * After moving SITE or any place, re-run `npm run routes` to redraw the roads between them.
+ */
+const gmaps = (latLng) => latLng.split(',').map(Number).reverse()
+
+// SITE is still an approximate plot centre: replace it with the plot's own pin.
+// `heading` turns the ground plan (degrees clockwise) to line it up with the real plot.
+export const SITE = { name: 'Urban Reserve', at: gmaps('19.2752, 72.8712'), heading: -8 }
+
 export const LOCATION = {
   heading: 'Never far from home',
   body: 'Surrounded by everyday conveniences, with easy access to schools, hospitals, malls, dining and entertainment, and seamless connectivity to the city through the Western Express Highway.',
   map: img('location-map'),
   rings: [
-    { mins: 5, places: [{ name: 'Rahul International School', type: 'school' }] },
+    // LR Tiwari Educational Campus
+    { mins: 5, places: [{ name: 'Rahul International School', type: 'school', at: gmaps('19.2989303, 72.8778045') }] },
     {
       mins: 10,
       places: [
-        { name: 'Lifunga Hospital', type: 'hospital' },
-        { name: 'GCC International School', type: 'school' },
-        { name: 'J.P. Mall', type: 'mall' },
+        // the brochure's "Lifunga Hospital": no such hospital; Thunga Hospital, Mira Bhayander Link Road, is the likely one
+        { name: 'Thunga Hospital', type: 'hospital', at: gmaps('19.2923134, 72.8623979') },
+        // behind GCC Hotel & Club
+        { name: 'GCC International School', type: 'school', at: gmaps('19.2835854, 72.8786167') },
+        // the mall inside JP North, Vinay Nagar Road (Google has no separate pin for the mall)
+        { name: 'J.P. Mall', type: 'mall', at: gmaps('19.2823669, 72.8872654') },
       ],
     },
     {
       mins: 15,
       places: [
-        { name: 'Western Express Highway', type: 'road' },
-        { name: 'Manus Mall', type: 'mall' },
-        { name: 'RBK / Kandivka Intl. School', type: 'school' },
-        { name: 'GCC Club', type: 'club' },
-        { name: 'Wockhardt Hospital', type: 'hospital' },
+        // Kashimira Junction
+        { name: 'Western Express Highway', type: 'road', at: gmaps('19.27266, 72.88303') },
+        // the brochure's "Manus Mall"
+        { name: 'Maxus Mall', type: 'mall', at: gmaps('19.2960705, 72.8487058') },
+        // the brochure's "RBK / Kandivka": RBK School, now Kanakia International School, Beverly Park
+        { name: 'RBK / Kanakia Intl. School', type: 'school', at: gmaps('19.2908651, 72.8717633') },
+        { name: 'GCC Club', type: 'club', at: gmaps('19.28325, 72.8785271') },
+        { name: 'Wockhardt Hospital', type: 'hospital', at: gmaps('19.2842599, 72.8621903') },
       ],
     },
   ],
@@ -260,8 +283,32 @@ export const SPECS = [
 
 export const SPEC_IMAGE = img('tower-dusk')
 
-// Equirectangular (2:1) panoramas: { id, label, src }. Empty until renders arrive.
-export const PANORAMAS = []
+/*
+ * The 360° views from each tower, floor by floor. The data are the Marzipano tool's exports and
+ * their tiles sit in public/pano/<tower>/tiles/<scene id>/. A scene's name ("DJI_0016_20th
+ * Floor_68.95M") gives the floor and its elevation; floors run from the top down, and `start` is
+ * the export's first scene.
+ */
+const floorOf = (tower) => (scene) => {
+  const [, name = scene.name, metres] = scene.name.match(/^DJI_\d+_(.+)_([\d.]+)M$/i) ?? []
+  return {
+    key: `${tower}/${scene.id}`,
+    label: /terrace/i.test(name) ? 'Terrace' : name,
+    height: Number(metres) || 0,
+    tiles: `/pano/${tower}/tiles/${scene.id}`,
+    data: scene,
+  }
+}
+export const TOWERS = [
+  ['towerA', 'Tower A', TOWER_A],
+  ['towerB', 'Tower B', TOWER_B],
+].map(([id, label, data]) => ({
+  id,
+  label,
+  settings: data.settings,
+  start: floorOf(id)(data.scenes[0]),
+  floors: data.scenes.map(floorOf(id)).sort((a, b) => b.height - a.height),
+}))
 
 // Images decoded behind the curtain before each screen is revealed.
 const I = (...names) => names.map(img)
@@ -271,7 +318,7 @@ export const ROUTE_IMAGES = {
   overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
   residences: [RESIDENCES[0].plan, RESIDENCES[0].key],
   amenities: [AMENITY_LEVELS[0].plan, ...AMENITY_LEVELS[0].photos.map((p) => p.image)],
-  views: [],
+  views: [`${TOWERS[0].start.tiles}/preview.jpg`],
   location: [LOCATION.map],
   specifications: [SPEC_IMAGE],
   enquire: [],

@@ -42,6 +42,7 @@ export default function App() {
       <Stage />
       <Chrome />
       <FullscreenGate />
+      <img src="/brainwing-watermark.webp" alt="" aria-hidden="true" draggable="false" className="watermark" />
       <div className="grain pointer-events-none fixed inset-0 z-95 hidden opacity-[0.22] mix-blend-soft-light pointer-fine:block" aria-hidden="true" />
     </Navigator>
   )
