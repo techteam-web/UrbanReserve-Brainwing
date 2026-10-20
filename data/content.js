@@ -1,5 +1,6 @@
 import TOWER_A from './TowerA_data.js'
 import TOWER_B from './TowerB_data.js'
+import TOP_CENTER from './TopCenterData.js'
 
 const img = (n) => `/assets/img/${n}.webp`
 
@@ -311,6 +312,27 @@ export const TOWERS = [
   start: floorOf(id)(data.scenes[0]),
   floors: data.scenes.map(floorOf(id)).sort((a, b) => b.height - a.height),
 }))
+
+/*
+ * The 360° view from above the middle of the site at three times of day, shot from one spot and
+ * lined up alike. Tiles in public/pano/TopCenter/tiles/<scene id>/; a scene's name
+ * ("Evening_TOPCenter") gives its time, the times run through the day, and `start` is the export's
+ * first scene. `thumb` is the face of the cube its starting view looks towards, whose first level
+ * is a single tile.
+ */
+const DAY = ['day', 'evening', 'night']
+const SIDES = ['f', 'r', 'b', 'l']
+const timeOf = (scene) => {
+  const tiles = `/pano/TopCenter/tiles/${scene.id}`
+  const side = SIDES[(((Math.round(scene.initialViewParameters.yaw / (Math.PI / 2)) % 4) + 4) % 4)]
+  return { key: `TopCenter/${scene.id}`, label: scene.name.split('_')[0], tiles, thumb: `${tiles}/1/${side}/0/0.jpg`, data: scene }
+}
+const hour = (t) => DAY.indexOf(t.label.toLowerCase())
+export const TOP_VIEW = {
+  settings: TOP_CENTER.settings,
+  start: timeOf(TOP_CENTER.scenes[0]),
+  times: TOP_CENTER.scenes.map(timeOf).sort((a, b) => hour(a) - hour(b)),
+}
 
 // Images decoded behind the curtain before each screen is revealed.
 const I = (...names) => names.map(img)

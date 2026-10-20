@@ -1,15 +1,67 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useIntro, useTone } from '../hooks/useIntro'
-import { TOWERS } from '../data/content'
+import { TOP_VIEW, TOWERS } from '../data/content'
 import HEADINGS from '../data/headings.json'
 
 const PanoramaViewer = lazy(() => import('../components/PanoramaViewer'))
 
-// each scene with how far it is turned from the others (npm run headings), so the view can keep
-// facing the same way across towers and floors
-const SCENES = TOWERS.flatMap((t) => t.floors).map((f) => ({ ...f, heading: HEADINGS[f.key] ?? 0 }))
+// each scene with how far it is turned from the others of its group (npm run headings), so the view
+// can keep facing the same way across towers and floors, and across the top view's times of day,
+// which were shot from one spot facing alike
+const SCENES = [
+  ...TOWERS.flatMap((t) => t.floors).map((f) => ({ ...f, group: 'towers' })),
+  ...TOP_VIEW.times.map((t) => ({ ...t, group: 'top' })),
+].map((s) => ({ ...s, heading: HEADINGS[s.key] ?? 0 }))
 // the floor nearest an elevation, so switching tower keeps the visitor at the same height
 const nearest = (floors, height) => floors.reduce((a, b) => (Math.abs(b.height - height) < Math.abs(a.height - height) ? b : a))
+// The towers and the top view take turns in one place in the panel, so swapping them keeps its size
+// and the toggle above them where it is.
+const layer = (shown) => `[grid-area:1/1] transition-[opacity,visibility] duration-700 ${shown ? '' : 'invisible opacity-0'}`
+
+// Puts the top view in place of the towers, and back.
+function TopToggle({ on, onChange }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={`label flex w-full items-center justify-between gap-3 rounded-full border bg-forest-950/40 py-2.5 pl-5 pr-3 text-[max(0.62rem,9px)] transition-colors duration-500 ${on ? 'border-gold/60 text-gold-lit' : 'border-ivory/15 text-ivory/70 hover:text-ivory'}`}
+    >
+      Top View
+      <span aria-hidden="true" className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-500 ${on ? 'bg-gold' : 'bg-ivory/15'}`}>
+        <span className={`absolute left-0.75 top-0.75 size-3.5 rounded-full transition-[translate,background-color] duration-500 ease-[cubic-bezier(.16,1,.3,1)] ${on ? 'translate-x-4 bg-forest-950' : 'bg-ivory/80'}`} />
+      </span>
+    </button>
+  )
+}
+
+// The top view's times of day as cards, each showing the way its view opens.
+function TimeCards({ current, onPick, className = '', ...rest }) {
+  return (
+    <div {...rest} className={className}>
+      {TOP_VIEW.times.map((t) => (
+        <button
+          key={t.key}
+          onClick={() => onPick(t.key)}
+          aria-current={t.key === current || undefined}
+          className={`group relative flex min-h-16 flex-1 items-end overflow-hidden border p-2 text-left transition-colors duration-500 lg:p-3 ${t.key === current ? 'border-gold/80' : 'border-ivory/10 hover:border-ivory/35'}`}
+        >
+          <img
+            src={t.thumb}
+            alt=""
+            decoding="async"
+            className={`absolute inset-0 size-full object-cover transition-[opacity,scale] duration-700 ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-105 ${t.key === current ? '' : 'opacity-55'}`}
+          />
+          <span className="absolute inset-0 bg-linear-to-t from-forest-950/85 via-forest-950/20 to-transparent" />
+          <span className={`relative flex items-center gap-2.5 font-display text-[0.85rem] uppercase tracking-[0.06em] transition-colors duration-500 lg:text-[clamp(1rem,2.2vh,1.4rem)] ${t.key === current ? 'text-ivory' : 'text-ivory/70 group-hover:text-ivory'}`}>
+            <span className={`hidden h-px w-3 origin-left bg-gold transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] lg:block ${t.key === current ? 'scale-x-100' : 'scale-x-0'}`} />
+            {t.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function TowerSwitch({ value, onChange }) {
   return (
@@ -77,19 +129,22 @@ export default function Views() {
   const root = useRef(null)
   const [towerId, setTowerId] = useState(TOWERS[0].id)
   const [height, setHeight] = useState(TOWERS[0].start.height)
+  const [top, setTop] = useState(false)
+  const [time, setTime] = useState(TOP_VIEW.start.key)
   const [open, setOpen] = useState(true)
   useTone('dark')
   useIntro(root)
 
   const tower = TOWERS.find((t) => t.id === towerId)
   const floor = nearest(tower.floors, height)
+  const { settings } = top ? TOP_VIEW : tower
   const toggle = { open, onClick: () => setOpen((v) => !v) }
 
   return (
     <section ref={root} className="screen bg-forest-950 text-ivory">
       <div data-mask className="absolute inset-0 bg-forest-900">
         <Suspense fallback={null}>
-          <PanoramaViewer scenes={SCENES} active={floor.key} autorotate={tower.settings.autorotateEnabled} mouseViewMode={tower.settings.mouseViewMode} />
+          <PanoramaViewer scenes={SCENES} active={top ? time : floor.key} autorotate={settings.autorotateEnabled} mouseViewMode={settings.mouseViewMode} />
         </Suspense>
       </div>
 
@@ -110,21 +165,27 @@ export default function Views() {
             className="pointer-events-auto relative min-h-0 overflow-y-auto border border-ivory/10 bg-forest-950/70 p-[clamp(1.1rem,2.4vh,1.8rem)] shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)] backdrop-blur-xl [scrollbar-width:none]"
           >
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
-            <TowerSwitch value={towerId} onChange={setTowerId} />
-            <div className="mt-[1.6vh]">
-              {tower.floors.map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setHeight(f.height)}
-                  aria-current={f.key === floor.key || undefined}
-                  className={`relative flex w-full items-baseline gap-4 border-b border-ivory/10 py-[1vh] pl-5 text-left transition-colors duration-500 last:border-b-0 ${f.key === floor.key ? 'text-ivory' : 'text-ivory/50 hover:text-ivory/90'}`}
-                >
-                  <span
-                    className={`absolute left-0 top-1/2 h-px w-3 origin-left -translate-y-1/2 bg-gold transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${f.key === floor.key ? 'scale-x-100' : 'scale-x-0'}`}
-                  />
-                  <span className="font-display text-[clamp(1.05rem,2.3vh,1.5rem)] uppercase tracking-[0.06em]">{f.label}</span>
-                </button>
-              ))}
+            <TopToggle on={top} onChange={setTop} />
+            <div className="mt-2 grid grid-cols-1">
+              <div inert={top} className={layer(!top)}>
+                <TowerSwitch value={towerId} onChange={setTowerId} />
+                <div className="mt-[1.6vh]">
+                  {tower.floors.map((f) => (
+                    <button
+                      key={f.key}
+                      onClick={() => setHeight(f.height)}
+                      aria-current={f.key === floor.key || undefined}
+                      className={`relative flex w-full items-baseline gap-4 border-b border-ivory/10 py-[1vh] pl-5 text-left transition-colors duration-500 last:border-b-0 ${f.key === floor.key ? 'text-ivory' : 'text-ivory/50 hover:text-ivory/90'}`}
+                    >
+                      <span
+                        className={`absolute left-0 top-1/2 h-px w-3 origin-left -translate-y-1/2 bg-gold transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${f.key === floor.key ? 'scale-x-100' : 'scale-x-0'}`}
+                      />
+                      <span className="font-display text-[clamp(1.05rem,2.3vh,1.5rem)] uppercase tracking-[0.06em]">{f.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <TimeCards inert={!top} current={time} onPick={setTime} className={`flex flex-col gap-2 ${layer(top)}`} />
             </div>
           </nav>
         </div>
@@ -142,8 +203,14 @@ export default function Views() {
             className={`pointer-events-auto relative w-full max-w-md border border-ivory/10 bg-forest-950/80 p-3 backdrop-blur-xl transition-opacity duration-700 ${open ? '' : 'opacity-0'}`}
           >
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
-            <TowerSwitch value={towerId} onChange={setTowerId} />
-            <FloorChips floors={tower.floors} current={floor.key} onPick={setHeight} />
+            <TopToggle on={top} onChange={setTop} />
+            <div className="mt-2 grid grid-cols-1">
+              <div inert={top} className={layer(!top)}>
+                <TowerSwitch value={towerId} onChange={setTowerId} />
+                <FloorChips floors={tower.floors} current={floor.key} onPick={setHeight} />
+              </div>
+              <TimeCards inert={!top} current={time} onPick={setTime} className={`grid grid-cols-3 gap-2 ${layer(top)}`} />
+            </div>
           </nav>
         </div>
       </div>
