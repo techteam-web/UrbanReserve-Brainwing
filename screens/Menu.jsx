@@ -11,7 +11,7 @@ const ITEMS = SECTIONS
 
 export default function Menu() {
   const root = useRef(null)
-  const { go, lastPage } = useNav()
+  const { go, lastPage, lastSearch } = useNav()
   const [hover, setHover] = useState(() => Math.max(0, ITEMS.findIndex((s) => s.id === lastPage())))
 
   useIntro(root)
@@ -33,7 +33,7 @@ export default function Menu() {
     { scope: root, dependencies: [hover] },
   )
 
-  const close = () => go(lastPage() ?? 'landing')
+  const close = () => go(lastPage() ?? 'landing', lastSearch())
 
   return (
     <section ref={root} className="screen bg-paper text-forest-900">

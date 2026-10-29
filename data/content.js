@@ -16,6 +16,7 @@ export const BRAND = {
 export const SECTIONS = [
   { id: 'overview', label: 'Overview', blurb: 'A private forest sanctuary, grown into the city.', preview: img('forest') },
   { id: 'residences', label: 'Residences', blurb: '2 & 3 BHK homes with deep, planted balconies.', preview: img('home-bedroom') },
+  { id: 'floorplans', label: 'Floor Plans', blurb: 'Explore the layouts of your future home.', preview: img('lobby') },
   { id: 'amenities', label: 'Amenities', blurb: '40+ amenities across forest trails and the E-Deck.', preview: img('ca-pool') },
   { id: 'views', label: 'Views', blurb: 'Look around the reserve in immersive 360°.', preview: img('tower-dusk') },
   { id: 'location', label: 'Location', blurb: 'Schools, hospitals and malls within minutes.', preview: img('location-map') },
@@ -126,6 +127,36 @@ export const RESIDENCES = [
     ],
   },
 ]
+
+/*
+ * The six homes of a typical floor, as outlined in public/floorplans/tower-b/cutouts/typicalB.svg.
+ * `shape` is an outline's points in that file's viewBox, which lines up with both towers' plans (their
+ * homes are the same; only the lift core is mirrored). `faces` is the way the home looks out, in
+ * degrees clockwise from the top of the plan: from the middle of the floor to the middle of the home.
+ */
+const FLATS = [
+  { id: 1, type: '3 BHK', faces: -33, shape: '677.1 375.5 496 375.5 496 282.8 560.1 282.8 560.1 261.6 512 261.6 512 214.7 415.7 214.7 415.7 297.6 229.9 297.6 229.9 0.3 380.1 0.3 380.1 41.4 430.2 41.4 430.2 89.9 475.6 89.9 475.6 40.6 711.2 40.6 711.2 340.3 677.5 340.3 677.1 375.5' },
+  { id: 2, type: '3 BHK', faces: 33, shape: '745.2 375.8 926 375.8 926 281.6 863.4 281.6 863.4 261.6 910.4 261.6 910.4 214.3 1008.2 214.3 1008.2 296.9 1192.9 296.9 1192.9 0.3 1042.2 0.3 1042.2 41 991.7 41 991.7 90.3 946.4 90.3 946.4 40.6 711.6 40.6 711.6 340.3 744.8 340.3 745.2 375.8' },
+  { id: 3, type: '2 BHK', faces: 97, shape: '1225.5 378.1 1097.1 506.5 1157 566.5 1113.8 609.6 1075.3 571.1 1027.1 619.3 1006.4 598.6 976.5 628.6 1164.1 816.2 1301.1 679.2 1291.4 669.6 1404.1 556.9' },
+  { id: 4, type: '2 BHK', faces: 143, shape: '724.6 878.7 816 787.3 837.8 809.1 892.9 753.9 931.3 792.3 956.5 767 918.5 729 966.7 680.7 945.6 659.6 976.1 629.1 1163.6 816.6 1026 954.3 1016.5 944.8 903.5 1057.8 724.6 878.7' },
+  { id: 5, type: '2 BHK', faces: -143, shape: '477.3 660.3 457.1 680.5 504.7 728 466 766.6 491.2 791.8 529.5 753.4 585.1 809 606.6 787.5 697.7 878.5 518.9 1057.4 406.4 945 397 954.5 259.3 816.8 446.4 629.7 477.3 660.3' },
+  { id: 6, type: '2 BHK', faces: -97, shape: '446.5 629.9 415.7 599.1 395.1 619.7 347.1 571.7 309.2 609.6 266.3 566.7 326.3 506.7 197.3 377.7 17.9 557.1 130.6 669.8 121.2 679.2 258.8 816.8 446.5 629.9' },
+]
+const FLATS_VIEWBOX = '0 0 1422.72 1089.36'
+
+// The typical floor of each tower; `aspect` is the plan image's width / height.
+export const FLOOR_PLANS = [
+  { id: 'towerA', label: 'Tower A', plan: '/floorplans/tower-a/typicalA.webp', aspect: 3000 / 2296, viewBox: FLATS_VIEWBOX, flats: FLATS },
+  { id: 'towerB', label: 'Tower B', plan: '/floorplans/tower-b/typicalB.webp', aspect: 3000 / 2297, viewBox: FLATS_VIEWBOX, flats: FLATS },
+]
+
+/*
+ * Which way the top of the floor plans faces in the tower panoramas, in radians, measured the way the
+ * headings (headings.json) line the tower scenes up: a scene's yaw plus its heading. Found on the 20th
+ * floor of both towers by matching the plot, as the drone saw it straight below, to its outline in
+ * src/world/site.js (good to about 5°). A home's view opens at PLAN_UP + its `faces`.
+ */
+export const PLAN_UP = (177 * Math.PI) / 180
 
 export const INTERIORS = [
   { image: img('home-bedroom'), label: 'Master bedroom' },
@@ -313,6 +344,14 @@ export const TOWERS = [
   floors: data.scenes.map(floorOf(id)).sort((a, b) => b.height - a.height),
 }))
 
+// The tower and floor a query asks for (?tower=towerB&floor=20, as a floor plan's home links to
+// them), falling back to the first tower's starting floor.
+export function towerFloor(search) {
+  const q = new URLSearchParams(search)
+  const tower = TOWERS.find((t) => t.id === q.get('tower')) ?? TOWERS[0]
+  return { tower, floor: tower.floors.find((f) => parseInt(f.label) === Number(q.get('floor'))) ?? tower.start }
+}
+
 /*
  * The 360° view from above the middle of the site at three times of day, shot from one spot and
  * lined up alike. Tiles in public/pano/TopCenter/tiles/<scene id>/; a scene's name
@@ -341,8 +380,9 @@ export const ROUTE_IMAGES = {
   menu: SECTIONS.map((s) => s.preview),
   overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
   residences: [RESIDENCES[0].plan, RESIDENCES[0].key],
+  floorplans: FLOOR_PLANS.map((p) => p.plan),
   amenities: [AMENITY_LEVELS[0].plan, ...AMENITY_LEVELS[0].photos.map((p) => p.image)],
-  views: [`${TOWERS[0].start.tiles}/preview.jpg`],
+  views: (search) => [`${towerFloor(search).floor.tiles}/preview.jpg`],
   location: [LOCATION.map],
   specifications: [SPEC_IMAGE],
 }
