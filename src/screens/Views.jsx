@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useIntro, useTone } from '../hooks/useIntro'
-import { TOP_VIEW, TOWERS } from '../data/content'
+import { useNav } from '../app/nav'
+import { FLOOR_PLANS, PLAN_UP, TOP_VIEW, TOWERS, towerFloor } from '../data/content'
 import HEADINGS from '../data/headings.json'
 
 const PanoramaViewer = lazy(() => import('../components/PanoramaViewer'))
@@ -17,6 +18,30 @@ const nearest = (floors, height) => floors.reduce((a, b) => (Math.abs(b.height -
 // The towers and the top view take turns in one place in the panel, so swapping them keeps its size
 // and the toggle above them where it is.
 const layer = (shown) => `[grid-area:1/1] transition-[opacity,visibility] duration-700 ${shown ? '' : 'invisible opacity-0'}`
+
+// Opened from a home on the floor plan (?tower=towerB&floor=20&flat=3): that tower and floor, and the
+// way the home looks out, for the panorama to open facing.
+function fromFloorPlan(search) {
+  const q = new URLSearchParams(search)
+  if (!TOWERS.some((t) => t.id === q.get('tower'))) return null
+  const { tower, floor } = towerFloor(search)
+  const flat = FLOOR_PLANS.find((p) => p.id === tower.id)?.flats.find((f) => f.id === Number(q.get('flat')))
+  return { tower, floor, flat, facing: flat ? { group: 'towers', angle: PLAN_UP + (flat.faces * Math.PI) / 180 } : null }
+}
+
+// Back to the floor plan a home's view was opened from.
+function BackToPlan({ flat, onClick, className = '', ...rest }) {
+  return (
+    <button
+      {...rest}
+      onClick={onClick}
+      className={`label flex items-center gap-2 text-left text-[max(0.62rem,9px)] text-gold-lit transition-colors duration-500 hover:text-ivory ${className}`}
+    >
+      <span aria-hidden="true">←</span>
+      Flat {flat.id} · Floor plan
+    </button>
+  )
+}
 
 // Puts the top view in place of the towers, and back.
 function TopToggle({ on, onChange }) {
@@ -127,8 +152,10 @@ function FloorChips({ floors, current, onPick }) {
 
 export default function Views() {
   const root = useRef(null)
-  const [towerId, setTowerId] = useState(TOWERS[0].id)
-  const [height, setHeight] = useState(TOWERS[0].start.height)
+  const { shown, go } = useNav()
+  const [from] = useState(() => fromFloorPlan(shown.search))
+  const [towerId, setTowerId] = useState(from?.tower.id ?? TOWERS[0].id)
+  const [height, setHeight] = useState(from?.floor.height ?? TOWERS[0].start.height)
   const [top, setTop] = useState(false)
   const [time, setTime] = useState(TOP_VIEW.start.key)
   const [open, setOpen] = useState(true)
@@ -139,18 +166,37 @@ export default function Views() {
   const floor = nearest(tower.floors, height)
   const { settings } = top ? TOP_VIEW : tower
   const toggle = { open, onClick: () => setOpen((v) => !v) }
+  // back on the tower and floor now shown (or the one the view was opened on, for the E-Deck and terrace)
+  const back = from?.flat && (() => go('floorplans', `?tower=${towerId}&floor=${parseInt(floor.label) || parseInt(from.floor.label)}`))
 
   return (
     <section ref={root} className="screen bg-forest-950 text-ivory">
       <div data-mask className="absolute inset-0 bg-forest-900">
         <Suspense fallback={null}>
-          <PanoramaViewer scenes={SCENES} active={top ? time : floor.key} autorotate={settings.autorotateEnabled} mouseViewMode={settings.mouseViewMode} />
+          {/* a home's view holds still on the way the home looks out, on every floor; the top view still turns */}
+          <PanoramaViewer
+            scenes={SCENES}
+            active={top ? time : floor.key}
+            autorotate={settings.autorotateEnabled && !(from?.flat && !top)}
+            mouseViewMode={settings.mouseViewMode}
+            facing={from?.facing}
+          />
         </Suspense>
       </div>
 
       {/* keeps the chrome legible over bright skies */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[20vh] bg-linear-to-b from-forest-950/60 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[18vh] bg-linear-to-t from-forest-950/65 to-transparent" />
+
+      {/* phones and portrait tablets: the way back to the floor plan sits under the menu, so the sheet keeps its height */}
+      {back && (
+        <BackToPlan
+          data-in
+          flat={from.flat}
+          onClick={back}
+          className="absolute left-(--gutter) top-(--chrome-top) z-10 rounded-full border border-ivory/15 bg-forest-950/70 px-4 py-2.5 backdrop-blur-xl lg:hidden"
+        />
+      )}
 
       {/* desktop: the floors in a rail down the left that slides off the edge, leaving its handle
           (the slide is on a wrapper: the rail's own transform belongs to the page's entrance) */}
@@ -165,6 +211,7 @@ export default function Views() {
             className="pointer-events-auto relative min-h-0 overflow-y-auto border border-ivory/10 bg-forest-950/70 p-[clamp(1.1rem,2.4vh,1.8rem)] shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)] backdrop-blur-xl [scrollbar-width:none]"
           >
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
+            {back && <BackToPlan flat={from.flat} onClick={back} className="mb-2 w-full py-1.5" />}
             <TopToggle on={top} onChange={setTop} />
             <div className="mt-2 grid grid-cols-1">
               <div inert={top} className={layer(!top)}>

@@ -16,6 +16,8 @@ function createDirector(initialId, setShown) {
   const d = {
     current: initialId,
     lastPage: isPage(initialId) ? initialId : null,
+    // and its query, so leaving the menu returns to the same view (a floor plan's tower, a home's view)
+    lastSearch: isPage(initialId) ? window.location.search : '',
     busy: false,
     queued: null,
     curtain: null,
@@ -27,6 +29,7 @@ function createDirector(initialId, setShown) {
         return
       }
       if (to === d.current) {
+        if (isPage(to)) d.lastSearch = location.search
         setShown(location)
         return
       }
@@ -34,13 +37,18 @@ function createDirector(initialId, setShown) {
       setTransition(true)
       // the menu's preview panel is desktop-only, so phones skip decoding its seven photos
       const desktop = window.matchMedia('(min-width: 64rem) and (orientation: landscape)').matches
-      const ready = decodeImages(to === 'menu' && !desktop ? [] : (ROUTE_IMAGES[to] ?? []))
+      // a screen's images can depend on its query (the floor a home's view opens on)
+      const images = ROUTE_IMAGES[to]
+      const ready = decodeImages(to === 'menu' && !desktop ? [] : typeof images === 'function' ? images(location.search) : (images ?? []))
       const tl = d.curtain.sweep(
         direction(d.current, to),
         () => {
           setIntroDelay(0.22)
           d.current = to
-          if (isPage(to)) d.lastPage = to
+          if (isPage(to)) {
+            d.lastPage = to
+            d.lastSearch = location.search
+          }
           flushSync(() => setShown(location))
         },
         ready,
@@ -85,7 +93,7 @@ export default function Navigator({ children }) {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       const d = director.current
       if (isPage(d.current)) navigate(pathFor('menu'))
-      else if (d.current === 'menu') navigate(pathFor(d.lastPage ?? 'landing'))
+      else if (d.current === 'menu') navigate(pathFor(d.lastPage ?? 'landing') + d.lastSearch)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -97,10 +105,15 @@ export default function Navigator({ children }) {
       shown,
       tone,
       setTone,
-      go: (id) => navigate(pathFor(id)),
+      // going where the address already is (a second click while the curtain runs) adds no history entry
+      go: (id, search = '', { replace = false } = {}) => {
+        const to = pathFor(id) + search
+        navigate(to, { replace: replace || to === location.pathname + location.search })
+      },
       lastPage: () => director.current?.lastPage ?? null,
+      lastSearch: () => director.current?.lastSearch ?? '',
     }),
-    [route, shown, tone, navigate],
+    [route, shown, tone, navigate, location],
   )
 
   return (

@@ -8,8 +8,12 @@ import { reduced } from '../gsap/gsapConfig'
  * `${tiles}/{z}/{f}/{y}/{x}.jpg` beside a preview.jpg; `heading` (radians) is how far the scene is
  * turned from the others of its `group` (see scripts/headings.mjs). A scene is built the first time
  * it is shown, so only the floors actually visited are fetched.
+ * `facing` ({ group, angle }) opens that group on a chosen direction instead: `angle` is a yaw plus
+ * the scene's heading, so one angle faces the same way in every scene of the group.
  */
-export default function PanoramaViewer({ scenes, active, autorotate = true, mouseViewMode = 'drag' }) {
+const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a))
+
+export default function PanoramaViewer({ scenes, active, autorotate = true, mouseViewMode = 'drag', facing = null }) {
   const host = useRef(null)
   const state = useRef({})
 
@@ -35,10 +39,10 @@ export default function PanoramaViewer({ scenes, active, autorotate = true, mous
     }
   }, [scenes, mouseViewMode])
 
-  // A group's first scene opens on its exported starting view. From then on the view carries over
-  // from the group's last scene, turned by the difference in their headings, so a change of tower,
-  // floor or time of day keeps facing the same way, and coming back to a group picks up where it
-  // was left. Then it turns slowly until the visitor takes over.
+  // A group's first scene opens on its exported starting view, or on `facing`. From then on the view
+  // carries over from the group's last scene, turned by the difference in their headings, so a change
+  // of tower, floor or time of day keeps facing the same way, and coming back to a group picks up
+  // where it was left. Then it turns slowly until the visitor takes over.
   useEffect(() => {
     const { viewer, sceneFor, shown, last } = state.current
     if (!viewer) return
@@ -47,7 +51,7 @@ export default function PanoramaViewer({ scenes, active, autorotate = true, mous
     viewer.setIdleMovement(Infinity)
     if (next !== shown) {
       const from = last[next.group]
-      if (!from) next.view.setParameters(next.start)
+      if (!from) next.view.setParameters(facing?.group === next.group ? { ...next.start, yaw: wrap(facing.angle - next.heading) } : next.start)
       else if (from !== next) {
         const { yaw, pitch, fov } = from.view.parameters()
         next.view.setParameters({ yaw: yaw + from.heading - next.heading, pitch, fov })
@@ -60,7 +64,7 @@ export default function PanoramaViewer({ scenes, active, autorotate = true, mous
       viewer.startMovement(spin)
       viewer.setIdleMovement(3000, spin)
     }
-  }, [active, scenes, autorotate, mouseViewMode])
+  }, [active, scenes, autorotate, mouseViewMode, facing])
 
   return <div ref={host} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
 }

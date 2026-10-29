@@ -12,6 +12,7 @@ import Amenities from './screens/Amenities'
 import Views from './screens/Views'
 import Location from './screens/Location'
 import Specifications from './screens/Specifications'
+import FloorPlan from './screens/FloorPlan'
 
 function Stage() {
   const { shown } = useNav()
@@ -23,6 +24,7 @@ function Stage() {
         <Route path="/menu" element={<Menu />} />
         <Route path="/overview" element={<Overview />} />
         <Route path="/residences" element={<Residences />} />
+        <Route path="/floorplans" element={<FloorPlan />} />
         <Route path="/amenities" element={<Amenities />} />
         <Route path="/views" element={<Views />} />
         <Route path="/location" element={<Location />} />

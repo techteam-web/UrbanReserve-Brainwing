@@ -211,7 +211,9 @@ const ZoomPan = forwardRef(function ZoomPan({ src, alt, aspect, className = '', 
 
   return (
     // callers position the frame (absolute inset-0, or relative with a size)
-    <div className={`isolate overflow-hidden ${className}`}>
+    // overflow-clip, not hidden: a clipped frame can't be scrolled, so tabbing to a home or pin on a
+    // zoomed plan can't shift it out of step with the pan
+    <div className={`isolate overflow-clip ${className}`}>
       <div ref={box} className={`absolute inset-0 touch-none select-none ${zoomed ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}>
         <div ref={content} className="absolute origin-top-left will-change-transform" style={{ '--zs': 1 }}>
           <img src={src} alt={alt} draggable="false" className={`absolute inset-0 h-full w-full ${imgClassName}`} />
