@@ -148,7 +148,7 @@ export default function Views() {
 
   return (
     <section ref={root} className="screen bg-forest-950 text-ivory">
-      <div data-mask className="absolute inset-0 bg-forest-900">
+      <div data-fade className="absolute inset-0 bg-forest-900">
         <Suspense fallback={null}>
           {/* a home's view holds still on the way the home looks out, on every floor; the top view still turns */}
           <PanoramaViewer

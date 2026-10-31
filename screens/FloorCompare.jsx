@@ -71,7 +71,7 @@ function Side({ home, onChange, className = '' }) {
           than the screen, as a swipe on a plan zooms it and there must be page left to scroll by */}
       <Swap id={unit.id} className="relative min-h-[min((100vw-2*var(--gutter))/1.29+7rem,100vh-var(--chrome-top)-var(--chrome-bot)-3rem)] flex-1 lg:min-h-0">
         <div data-swap className="absolute inset-0">
-          <div data-mask className="absolute inset-0">
+          <div data-fade className="absolute inset-0">
             <ZoomPan key={unit.id} src={unit.plan} alt={`${unit.label}, ${unit.about}, floor plan`} aspect={unit.aspect} controlsRow className="absolute inset-0 rounded-[1.25rem] bg-white" />
           </div>
         </div>
@@ -233,7 +233,7 @@ export function CompareViews({ homes }) {
       <div className="absolute inset-0 grid grid-rows-2 landscape:grid-cols-2 landscape:grid-rows-1">
         {homes.map((h, i) => (
           <div key={i} className="relative min-h-0 overflow-hidden">
-            <div data-mask className="absolute inset-0 bg-forest-900">
+            <div data-fade className="absolute inset-0 bg-forest-900">
               <Suspense fallback={null}>
                 {/* each holds still on the way its home looks out, on every floor */}
                 <PanoramaViewer

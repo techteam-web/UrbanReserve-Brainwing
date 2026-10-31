@@ -2,15 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Curtain from './Curtain'
-import { NavContext, direction, idFor, isPage, pathFor, setIntroDelay } from './nav'
+import { NavContext, idFor, isPage, pathFor, setIntroDelay } from './nav'
 import { decodeImages } from './decode'
 import { setTransition } from './gate'
-import { ROUTE_IMAGES } from '../data/content'
+import { ROUTE_GROUND, ROUTE_IMAGES } from '../data/content'
+
+// What a screen's images or colour are can depend on its query (the floor a home's view opens on).
+const forRoute = (value, search) => (typeof value === 'function' ? value(search) : value)
 
 /**
- * React Router owns the URL; this owns *when* the screen changes. A new location starts a curtain
- * sweep, and the rendered location (`shown`) only switches while the curtain covers the page.
- * One sweep runs at a time; locations arriving mid-sweep are queued (latest wins).
+ * React Router owns the URL; this owns *when* the screen changes. A new location starts a fade, and
+ * the rendered location (`shown`) only switches while the curtain covers the page.
+ * One fade runs at a time; locations arriving during one are queued (latest wins).
  */
 function createDirector(initialId, setShown) {
   const d = {
@@ -37,13 +40,11 @@ function createDirector(initialId, setShown) {
       setTransition(true)
       // the menu's preview panel is desktop-only, so phones skip decoding its seven photos
       const desktop = window.matchMedia('(min-width: 64rem) and (orientation: landscape)').matches
-      // a screen's images can depend on its query (the floor a home's view opens on)
-      const images = ROUTE_IMAGES[to]
-      const ready = decodeImages(to === 'menu' && !desktop ? [] : typeof images === 'function' ? images(location.search) : (images ?? []))
-      const tl = d.curtain.sweep(
-        direction(d.current, to),
+      const ready = decodeImages(to === 'menu' && !desktop ? [] : (forRoute(ROUTE_IMAGES[to], location.search) ?? []))
+      const tl = d.curtain.cover(
+        forRoute(ROUTE_GROUND[to], location.search),
         () => {
-          setIntroDelay(0.22)
+          setIntroDelay(0)
           d.current = to
           if (isPage(to)) {
             d.lastPage = to

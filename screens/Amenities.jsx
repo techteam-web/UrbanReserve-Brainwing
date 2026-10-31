@@ -67,7 +67,7 @@ export default function Amenities() {
 
         <Swap id={id} className="relative min-h-[45vh] lg:min-h-0">
           {lvl.plan ? (
-            <div data-swap data-mask className="absolute inset-0 pt-[3.4vh]">
+            <div data-swap data-fade className="absolute inset-0 pt-[3.4vh]">
               <Terrain side="top" seed={id === 'ground' ? 61 : 67} amp={60} className="absolute inset-x-0 top-0 h-[3.6vh] w-full text-paper" />
               <div className="flex h-full items-center justify-center bg-paper p-[2vh]">
                 <img src={lvl.plan} alt={`${lvl.label} plan`} className="max-h-full max-w-full object-contain mix-blend-multiply" />

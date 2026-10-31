@@ -148,7 +148,7 @@ function Building() {
           ))}
         </div>
       </div>
-      <div data-mask className="relative overflow-hidden lg:aspect-[0.62] lg:h-full">
+      <div data-fade className="relative overflow-hidden lg:aspect-[0.62] lg:h-full">
         {b.views.map((v) => (
           <img key={v.id} data-view={v.id} src={v.image} alt={`Urban Reserve tower, ${v.label.toLowerCase()}`} className="invisible absolute inset-0 h-full w-full object-cover object-[50%_90%]" />
         ))}
@@ -163,7 +163,7 @@ function Lobby() {
   const l = OVERVIEW.lobby
   return (
     <div className="absolute inset-0 grid grid-rows-[1.2fr_1fr] bg-sand text-ivory lg:grid-cols-[1.55fr_1fr] lg:grid-rows-1">
-      <div data-mask className="relative overflow-hidden">
+      <div data-fade className="relative overflow-hidden">
         <img data-kb src={l.image} alt="The arrival lobby" className="absolute inset-0 h-full w-full object-cover will-change-transform" />
         <div className="absolute inset-0 bg-linear-to-b from-forest-950/35 via-transparent to-forest-950/55" />
       </div>
@@ -218,7 +218,7 @@ export default function Overview() {
   useTone(SLIDES[idx].tone)
   useIntro(root)
 
-  // the slide controls, once the slides are wired up: go(n, dir), next(), prev()
+  // the slide controls, once the slides are wired up: go(n), next(), prev()
   const nav = useRef({ go: () => {}, next: () => {}, prev: () => {} })
 
   useGSAP(
@@ -243,7 +243,7 @@ export default function Overview() {
         return timer
       }
 
-      const go = contextSafe((n, dir = n > cur.current ? 1 : -1) => {
+      const go = contextSafe((n) => {
         const now = performance.now()
         if (now < until.current || n === cur.current || n < 0 || n >= SLIDES.length) return
         const from = slides[cur.current]
@@ -256,23 +256,25 @@ export default function Overview() {
           gsap.set(to, { visibility: 'visible' })
           return
         }
-        until.current = now + 1450
-        gsap.set(to, { visibility: 'visible', zIndex: 2, xPercent: 0, clipPath: dir > 0 ? 'inset(0% 0% 0% 100%)' : 'inset(0% 100% 0% 0%)' })
+        until.current = now + 900
+        // the new slide fades up over the old one, which stays still beneath it, and its words wait
+        // until the old ones have all but gone, so the two never read on top of each other
+        gsap.set(to, { autoAlpha: 0, zIndex: 2 })
         gsap.set(from, { zIndex: 1 })
-        gsap
-          .timeline({
-            onComplete: () => {
-              gsap.set(from, { visibility: 'hidden', xPercent: 0, clearProps: 'zIndex' })
-              gsap.set(to, { clearProps: 'clipPath,zIndex' })
-            },
-          })
-          .to(to, { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.25, ease: 'expo.inOut' }, 0)
-          .to(from, { xPercent: -dir * 14, duration: 1.25, ease: 'expo.inOut' }, 0)
-        playIn(to, 0.45)
+        gsap.to(to, {
+          autoAlpha: 1,
+          duration: 0.7,
+          ease: 'sine.inOut',
+          onComplete: () => {
+            gsap.set(from, { visibility: 'hidden', clearProps: 'zIndex' })
+            gsap.set(to, { clearProps: 'zIndex' })
+          },
+        })
+        playIn(to, 0.5)
       })
       // the slides run in a ring: the last leads on to the first, and the first back to the last
-      const next = () => go((cur.current + 1) % SLIDES.length, 1)
-      const prev = () => go((cur.current - 1 + SLIDES.length) % SLIDES.length, -1)
+      const next = () => go((cur.current + 1) % SLIDES.length)
+      const prev = () => go((cur.current - 1 + SLIDES.length) % SLIDES.length)
       nav.current = { go, next, prev }
       // the first wait only starts once the screen is actually on show (not behind the full-screen gate)
       holdIntro(arm(1.2))
