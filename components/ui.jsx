@@ -113,6 +113,23 @@ export function Icon({ name, className = 'h-4 w-4' }) {
   )
 }
 
+// A named on/off switch, for the dark panels over a view.
+export function Toggle({ label, on, onChange, className = '' }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={`label flex items-center justify-between gap-3 rounded-full border bg-forest-950/40 py-2.5 pl-5 pr-3 text-[max(0.62rem,9px)] transition-colors duration-500 ${on ? 'border-gold/60 text-gold-lit' : 'border-ivory/15 text-ivory/70 hover:text-ivory'} ${className}`}
+    >
+      {label}
+      <span aria-hidden="true" className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-500 ${on ? 'bg-gold' : 'bg-ivory/15'}`}>
+        <span className={`absolute left-0.75 top-0.75 size-3.5 rounded-full transition-[translate,background-color] duration-500 ease-[cubic-bezier(.16,1,.3,1)] ${on ? 'translate-x-4 bg-forest-950' : 'bg-ivory/80'}`} />
+      </span>
+    </button>
+  )
+}
+
 // A pill of options with a sliding thumb behind the chosen one.
 export function Segmented({ items, value, onChange, tone = 'light', size = 'md', className = '' }) {
   const i = Math.max(0, items.findIndex((t) => t.id === value))
@@ -132,7 +149,7 @@ export function Segmented({ items, value, onChange, tone = 'light', size = 'md',
             role="tab"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className={`label relative z-[1] truncate rounded-full transition-colors duration-300 active:scale-95 ${size === 'sm' ? 'px-2 py-2 text-[max(0.58rem,9px)]' : 'px-3 py-3'} ${
+            className={`label relative z-[1] truncate rounded-full transition-colors duration-300 active:scale-95 ${size === 'sm' ? 'px-1 py-2 text-[max(0.58rem,9px)]' : 'px-3 py-3'} ${
               on ? (dark ? 'text-forest-950' : 'text-forest-900') : dark ? 'text-ivory/70' : 'text-forest-900/55'
             }`}
           >

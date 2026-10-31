@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { forwardRef, useEffect, useEffectEvent, useImperativeHandle, useRef } from 'react'
 import Marzipano from 'marzipano'
 import { reduced } from '../gsap/gsapConfig'
 
@@ -10,12 +10,22 @@ import { reduced } from '../gsap/gsapConfig'
  * it is shown, so only the floors actually visited are fetched.
  * `facing` ({ group, angle }) opens that group on a chosen direction instead: `angle` is a yaw plus
  * the scene's heading, so one angle faces the same way in every scene of the group.
+ * `onTurn` hears every turn of the view as { angle, pitch, fov }, and the ref's `turnTo` takes the
+ * same, so one viewer can follow another. A turnTo reports back before it returns.
  */
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a))
 
-export default function PanoramaViewer({ scenes, active, autorotate = true, mouseViewMode = 'drag', facing = null }) {
+const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, autorotate = true, mouseViewMode = 'drag', facing = null, onTurn }, ref) {
   const host = useRef(null)
   const state = useRef({})
+  const turned = useEffectEvent((look) => onTurn?.(look))
+
+  useImperativeHandle(ref, () => ({
+    turnTo({ angle, pitch, fov }) {
+      const { shown } = state.current
+      shown?.view.setParameters({ yaw: wrap(angle - shown.heading), pitch, fov })
+    },
+  }))
 
   useEffect(() => {
     const viewer = new Marzipano.Viewer(host.current, { controls: { mouseViewMode }, stage: { progressive: true } })
@@ -31,6 +41,12 @@ export default function PanoramaViewer({ scenes, active, autorotate = true, mous
       made.set(key, entry)
       return entry
     }
+    viewer.addEventListener('viewChange', () => {
+      const { shown } = state.current
+      if (!shown) return
+      const { yaw, pitch, fov } = shown.view.parameters()
+      turned({ angle: yaw + shown.heading, pitch, fov })
+    })
     // the scene last shown from each group
     state.current = { viewer, sceneFor, last: {} }
     return () => {
@@ -67,4 +83,6 @@ export default function PanoramaViewer({ scenes, active, autorotate = true, mous
   }, [active, scenes, autorotate, mouseViewMode, facing])
 
   return <div ref={host} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
-}
+})
+
+export default PanoramaViewer

@@ -158,6 +158,116 @@ export const FLOOR_PLANS = [
  */
 export const PLAN_UP = (177 * Math.PI) / 180
 
+// The way a home looks out, as the panorama viewer's `facing`.
+export const facingOf = ({ faces }) => ({ group: 'towers', angle: PLAN_UP + (faces * Math.PI) / 180 })
+
+// A home's rooms: [name, size], with sizes as its drawing prints them and the largest of a kind first.
+const ROOMS_3BHK = [
+  ['Foyer', `3'6" × 3'11"`],
+  ['Living & dining', `11'0" × 18'6"\n+ 2'11" × 10'10"`],
+  ['Kitchen', `12'6" × 7'7"`],
+  ['Bedroom 1', `13'0" × 12'0"`],
+  ['Bedroom 2', `12'0" × 10'10"`],
+  ['Bedroom 3', `10'0" × 12'0"`],
+  ['Toilet 1', `4'5" × 8'0"`],
+  ['Toilet 2', `4'5" × 7'7"`],
+  ['Toilet 3', `4'5" × 7'3"`],
+  ['Powder toilet', `4'1" × 4'1"`],
+  ['Balcony 1', `13'5" × 3'5"`],
+  ['Balcony 2', `11'0" × 4'3"`],
+]
+// Flats 3 to 6 differ only in the toilet off the larger bedroom.
+const rooms2bhk = (toilet) => [
+  ['Foyer', `3'5" × 3'3"`],
+  ['Living & dining', `10'0" × 15'6"`],
+  ['Kitchen', `7'7" × 9'0"`],
+  ['Bedroom 1', `11'6" × 11'0"`],
+  ['Bedroom 2', `9'6" × 11'6"`],
+  ['Toilet 1', toilet],
+  ['Toilet 2', `4'5" × 7'7"`],
+  ['Balcony 1', `9'0" × 5'4"`],
+  ['Dry yard', `7'7" × 3'3"`],
+]
+const ROOMS_JODI_12 = [
+  ['Foyer', `3'6" × 3'11"`],
+  ['Living & dining', `22'6" × 18'6"
++ two of 2'11" × 10'10"`],
+  ['Study', `12'6" × 7'7"`],
+  ['Kitchen', `16'6" × 7'7"`],
+  ['Utility', `4'1" × 4'1"`],
+  ['Bedroom 1', `17'11" × 15'9"`],
+  ['Bedroom 2', `13'0" × 12'0"`],
+  ['Bedroom 3', `12'0" × 10'10"`],
+  ['Bedroom 4', `10'0" × 12'0"`],
+  ['Bedroom 5', `10'0" × 12'0"`],
+  ['Dresser', `12'0" × 7'7"`],
+  ['Toilet 1', `4'5" × 8'0"`],
+  ['Toilet 2', `4'5" × 7'7"`],
+  ['Toilet 3', `4'5" × 7'7"`],
+  ['Toilet 4', `4'5" × 7'3"`],
+  ['Toilet 5', `4'5" × 7'3"`],
+  ['Powder toilet', `4'1" × 4'1"`],
+  ['Balcony 1', `22'6" × 4'3"`],
+  ['Balcony 2', `13'5" × 3'5"`],
+  ['Balcony 3', `13'5" × 3'5"`],
+]
+const ROOMS_JODI_34 = [
+  ['Foyer', `7'5" × 3'3"`],
+  ['Living & dining', `20'6" × 15'6"`],
+  ['Study', `7'7" × 9'0"`],
+  ['Kitchen', `7'7" × 9'0"`],
+  ['Bedroom 1', `11'6" × 11'0"`],
+  ['Bedroom 2', `11'6" × 11'0"`],
+  ['Bedroom 3', `9'6" × 11'6"`],
+  ['Bedroom 4', `9'6" × 11'6"`],
+  ['Toilet 1', `7'1" × 4'9"`],
+  ['Toilet 2', `4'7" × 7'9"`],
+  ['Toilet 3', `4'5" × 7'7"`],
+  ['Toilet 4', `4'5" × 7'7"`],
+  ['Balcony 1', `18'6" × 5'4"`],
+  ['Balcony 2', `7'7" × 3'3"`],
+  ['Dry yard', `7'7" × 3'3"`],
+]
+// The rooms in the order a comparison lists them, whichever homes it shows.
+export const ROOM_ORDER = [
+  'Foyer',
+  'Living & dining',
+  'Study',
+  'Kitchen',
+  'Utility',
+  ...[1, 2, 3, 4, 5].map((n) => `Bedroom ${n}`),
+  'Dresser',
+  ...[1, 2, 3, 4, 5].map((n) => `Toilet ${n}`),
+  'Powder toilet',
+  ...[1, 2, 3].map((n) => `Balcony ${n}`),
+  'Dry yard',
+]
+
+/*
+ * The homes that can be compared: each flat, and each jodi, two flats joined into one home. The plans
+ * are in public/floorplans/units/ and hold for both towers, whose homes are the same. Flat 2's comes
+ * off Tower B's typical floor, as its own drawing was never supplied (tower-b/flat-2.png is a layout
+ * marked 3 that isn't on the typical floor). `flats` are the ids in FLATS a home takes up, and a jodi
+ * looks out midway between its two.
+ */
+const unitPlan = (n) => `/floorplans/units/${n}.webp`
+export const UNITS = [
+  { id: '1', label: 'Flat 1', type: '3 BHK', flats: [1], plan: unitPlan('flat-1'), aspect: 2756 / 2138, rooms: ROOMS_3BHK },
+  { id: '2', label: 'Flat 2', type: '3 BHK', flats: [2], plan: unitPlan('flat-2'), aspect: 2286 / 1772, rooms: ROOMS_3BHK },
+  { id: '3', label: 'Flat 3', type: '2 BHK', flats: [3], plan: unitPlan('flat-3'), aspect: 2756 / 2156, rooms: rooms2bhk(`4'7" × 7'9"`) },
+  { id: '4', label: 'Flat 4', type: '2 BHK', flats: [4], plan: unitPlan('flat-4'), aspect: 2756 / 2156, rooms: rooms2bhk(`7'1" × 4'9"`) },
+  { id: '5', label: 'Flat 5', type: '2 BHK', flats: [5], plan: unitPlan('flat-5'), aspect: 2756 / 2156, rooms: rooms2bhk(`7'1" × 4'9"`) },
+  { id: '6', label: 'Flat 6', type: '2 BHK', flats: [6], plan: unitPlan('flat-6'), aspect: 2756 / 2156, rooms: rooms2bhk(`4'7" × 7'9"`) },
+  { id: '1-2', label: 'Jodi 1 + 2', type: 'Jodi', about: '5 bedrooms + study', flats: [1, 2], plan: unitPlan('jodi-1-2'), aspect: 3604 / 1507, rooms: ROOMS_JODI_12 },
+  { id: '3-4', label: 'Jodi 3 + 4', type: 'Jodi', about: '4 bedrooms + study', flats: [3, 4], plan: unitPlan('jodi-3-4'), aspect: 3604 / 1521, rooms: ROOMS_JODI_34 },
+  { id: '5-6', label: 'Jodi 5 + 6', type: 'Jodi', about: '4 bedrooms + study', flats: [5, 6], plan: unitPlan('jodi-5-6'), aspect: 3604 / 1521, rooms: ROOMS_JODI_34 },
+].map((u) => ({
+  about: u.type,
+  ...u,
+  short: u.id.replace('-', '+'),
+  faces: u.flats.reduce((sum, id) => sum + FLATS.find((f) => f.id === id).faces, 0) / u.flats.length,
+}))
+
 export const INTERIORS = [
   { image: img('home-bedroom'), label: 'Master bedroom' },
   { image: img('home-living'), label: 'Living & dining' },
@@ -352,6 +462,34 @@ export function towerFloor(search) {
   return { tower, floor: tower.floors.find((f) => parseInt(f.label) === Number(q.get('floor'))) ?? tower.start }
 }
 
+// The floors a tower has views from, lowest first (the E-Deck and the terrace aren't typical floors).
+export const floorsOf = (towerId) =>
+  TOWERS.find((t) => t.id === towerId)
+    .floors.filter((f) => /^\d/.test(f.label))
+    .map((f) => ({ ...f, id: parseInt(f.label), short: String(parseInt(f.label)) }))
+    .reverse()
+
+// The two homes a comparison shows, as an address holds them (?compare=towerA.1.20,towerB.3.20, tower,
+// home and floor of each, with &views once it is on their views), or null when it isn't a comparison.
+export function comparison(search) {
+  const q = new URLSearchParams(search)
+  if (!q.has('compare')) return null
+  const sides = q.get('compare').split(',')
+  const homes = [0, 1].map((i) => {
+    const [towerId, unitId, floorNo] = (sides[i] ?? '').split('.')
+    const tower = TOWERS.find((t) => t.id === towerId) ?? TOWERS[i]
+    const floors = floorsOf(tower.id)
+    return {
+      tower,
+      unit: UNITS.find((u) => u.id === unitId) ?? UNITS[i * 2],
+      floor: floors.find((f) => f.id === Number(floorNo)) ?? floors.find((f) => f.key === tower.start.key) ?? floors[0],
+    }
+  })
+  return { homes, views: q.has('views') }
+}
+
+export const compareQuery = (homes, views = false) => `?compare=${homes.map((h) => `${h.tower.id}.${h.unit.id}.${h.floor.id}`).join(',')}${views ? '&views' : ''}`
+
 /*
  * The 360° view from above the middle of the site at three times of day, shot from one spot and
  * lined up alike. Tiles in public/pano/TopCenter/tiles/<scene id>/; a scene's name
@@ -380,7 +518,11 @@ export const ROUTE_IMAGES = {
   menu: SECTIONS.map((s) => s.preview),
   overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
   residences: [RESIDENCES[0].plan, RESIDENCES[0].key],
-  floorplans: FLOOR_PLANS.map((p) => p.plan),
+  floorplans: (search) => {
+    const compared = comparison(search)
+    if (!compared) return FLOOR_PLANS.map((p) => p.plan)
+    return compared.homes.map((h) => (compared.views ? `${h.floor.tiles}/preview.jpg` : h.unit.plan))
+  },
   amenities: [AMENITY_LEVELS[0].plan, ...AMENITY_LEVELS[0].photos.map((p) => p.image)],
   views: (search) => [`${towerFloor(search).floor.tiles}/preview.jpg`],
   location: [LOCATION.map],

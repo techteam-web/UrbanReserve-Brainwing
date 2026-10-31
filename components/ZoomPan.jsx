@@ -9,8 +9,9 @@ const clampS = (s) => Math.min(MAX, Math.max(1, s))
  * `children` are overlays laid out in the image's own box, so `left/top` percentages
  * line up with the artwork at any zoom. Pass `--zs` to counter-scale overlay labels.
  * The ref exposes `focus(u, v, scale)` (u/v are 0..1 across the image) and `reset()`.
+ * `controlsRow` lays the zoom buttons along the foot, for a frame that leaves room below its image.
  */
-const ZoomPan = forwardRef(function ZoomPan({ src, alt, aspect, className = '', imgClassName = '', controls = true, tone = 'light', children }, ref) {
+const ZoomPan = forwardRef(function ZoomPan({ src, alt, aspect, className = '', imgClassName = '', controls = true, controlsRow = false, tone = 'light', children }, ref) {
   const box = useRef(null)
   const content = useRef(null)
   const t = useRef({ x: 0, y: 0, s: 1 })
@@ -221,14 +222,14 @@ const ZoomPan = forwardRef(function ZoomPan({ src, alt, aspect, className = '', 
         </div>
       </div>
       {controls && (
-        <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-2">
+        <div className={`absolute bottom-3 right-3 z-10 flex gap-2 ${controlsRow ? 'flex-row-reverse' : 'flex-col'}`}>
           <button type="button" onClick={() => step(1.6)} className={btn} aria-label="Zoom in">
             <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14M5 12h14" /></svg>
           </button>
           <button type="button" onClick={() => step(1 / 1.6)} className={btn} aria-label="Zoom out">
             <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14" /></svg>
           </button>
-          <button type="button" onClick={() => tweenTo({ x: 0, y: 0, s: 1 }, 0.7)} className={`${btn} ${zoomed ? '' : 'pointer-events-none opacity-0'} transition-opacity`} aria-label="Reset zoom">
+          <button type="button" onClick={() => tweenTo({ x: 0, y: 0, s: 1 }, 0.7)} tabIndex={zoomed ? 0 : -1} className={`${btn} ${zoomed ? '' : 'pointer-events-none opacity-0'} transition-opacity`} aria-label="Reset zoom">
             <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
           </button>
         </div>

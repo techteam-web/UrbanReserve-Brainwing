@@ -164,6 +164,14 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
+  /* A scroller on paper that shades its foot while there is more below: the shade holds still, and a
+     cover in the paper's colour at the end of the content slides over it when that end is reached. */
+  .more-below {
+    background:
+      linear-gradient(to top, var(--color-paper) 1.5rem, transparent) bottom / 100% 2.5rem no-repeat local,
+      linear-gradient(to top, rgb(20 52 41 / 0.18), transparent) bottom / 100% 1.25rem no-repeat scroll;
+  }
+
   [data-brand] svg {
     display: block;
     width: 100%;

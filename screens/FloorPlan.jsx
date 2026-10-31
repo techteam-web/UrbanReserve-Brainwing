@@ -1,23 +1,17 @@
 import { useRef, useState } from 'react'
 import { useIntro, useTone } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
-import { FLOOR_PLANS, TOWERS, towerFloor } from '../data/content'
-import { Segmented, Swap } from '../components/ui'
+import { comparison, FLOOR_PLANS, floorsOf, TOWERS, towerFloor } from '../data/content'
+import { Icon, Segmented, Swap } from '../components/ui'
 import ZoomPan from '../components/ZoomPan'
 import Botanical from '../art/Botanical'
-
-// The floors a tower has views from, lowest first (the E-Deck and the terrace aren't typical floors).
-const floorsOf = (towerId) =>
-  TOWERS.find((t) => t.id === towerId)
-    .floors.filter((f) => /^\d/.test(f.label))
-    .map((f) => ({ id: parseInt(f.label), label: f.label, short: String(parseInt(f.label)) }))
-    .reverse()
+import { ComparePlans, CompareViews } from './FloorCompare'
 
 /**
  * The typical floor of each tower, with its six homes outlined on the plan: tapping one opens the 360°
  * view from it on the chosen floor, facing the way the home looks out.
  */
-export default function FloorPlan() {
+function TypicalFloor() {
   const root = useRef(null)
   const { shown, go } = useNav()
   // the tower and floor in the address (?tower=towerB&floor=20), else the first tower's starting floor
@@ -38,6 +32,8 @@ export default function FloorPlan() {
     setFloorNo(n)
     go('floorplans', `?tower=${tower}&floor=${n}`, { replace: true })
   }
+  // opens on this tower's largest home against a smaller one in the other tower
+  const compare = () => go('floorplans', `?compare=${id}.1.${floor.id},${TOWERS.find((t) => t.id !== id).id}.3.${floor.id}`)
 
   return (
     <section ref={root} className="screen bg-paper text-forest-900">
@@ -61,6 +57,9 @@ export default function FloorPlan() {
               <Segmented items={floors} value={floor.id} onChange={(n) => choose(id, n)} size="sm" className="mt-2" />
             </div>
             <p data-in className="label mt-[2.5vh] text-ink/45">{flat ? `Flat ${flat.id} · ${flat.type}` : 'Tap a home to see its view'}</p>
+            <button data-in onClick={compare} className="label mt-[2.5vh] flex items-center justify-center gap-2 rounded-full border border-forest-900/20 px-3 py-3 transition-colors hover:border-forest-900/50 active:scale-95">
+              <Icon name="compare" className="size-4" /> Compare units
+            </button>
           </div>
 
           {/* the bottom margin keeps the zoom buttons clear of the watermark */}
@@ -100,4 +99,14 @@ export default function FloorPlan() {
       </div>
     </section>
   )
+}
+
+// The typical floors, or a comparison of two homes when the address holds one.
+export default function FloorPlan() {
+  const { shown } = useNav()
+  const compared = comparison(shown.search)
+  if (!compared) return <TypicalFloor />
+  const { homes, views } = compared
+  // a different pair of homes starts afresh, on the way each one looks out
+  return views ? <CompareViews key={homes.map((h) => `${h.tower.id}.${h.unit.id}`).join()} homes={homes} /> : <ComparePlans homes={homes} />
 }
