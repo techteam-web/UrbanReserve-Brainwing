@@ -1,7 +1,7 @@
 # Urban Reserve
 
 A full-screen, non-scrolling presentation app for Urban Reserve, built from the brochure (`260916_URBAN RESERVE BROCHURE MANUAL V1.pdf`).
-It runs as Landing → Menu → one page per section, with a single torn-edged curtain drawn across the screen between pages.
+It runs as Landing → Menu → one page per section, with a quiet fade between pages, through the colour the next page opens on.
 
 ```
 npm install
@@ -21,7 +21,7 @@ React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap
 | `src/screens/` | One file per screen |
 | `src/art/` | Brand art: vector logo, `Terrain` (the cover's real torn edge), `Botanical`s traced from the brochure, `SunBirds` |
 | `src/app/FullscreenGate.jsx` | The full-screen gate. The app only runs in full screen, and the gate returns when you leave it |
-| `src/hooks/useIntro.js` | Shared entrance animation: `data-in`, `data-mask` and `data-draw` attributes |
+| `src/hooks/useIntro.js` | Shared entrance animation: `data-in`, `data-fade` and `data-draw` attributes |
 | `src/brand/*.svg` | Logo mark and lockup, extracted as vectors from page 1 of the brochure |
 | `src/world/` | The Location 3D map: map style, the reserve in three.js, clouds, camera flights and stops |
 | `public/models/` | GLB models: `urban.glb` is the building (made by `npm run building`), the three tree variants line the plot, `bird.glb` is the flock, and the fishing boats and `Yatch1` sail the creek and the sea |
@@ -43,7 +43,7 @@ The Location page is a 3D map of the neighbourhood. It opens in cloud. The view 
 
 A preloader holds the page until the whole scene is in: the map and terrain for the arrival and the descent, every model, the HDRI lighting and compiled shaders. It shows the progress and what is still loading. A slow connection keeps it waiting for as long as data is still arriving; only 20 s with nothing new lets the page start without the missing part (`src/world/World.jsx`).
 
-The world only starts building once the page transition has finished, so it can't stall the curtain mid-sweep. During the transition, MapLibre's workers start up and the slowest map tiles are fetched in advance. Shaders compile in the background where the browser supports it (`KHR_parallel_shader_compile`), and nothing is drawn with a shader that is still compiling. The HDRI and the water's shore field are worked out in web workers. On Windows, Direct3D's shader compiler is slow with long loops, so the cloud shader keeps its noise loops from being unrolled.
+The world only starts building once the page transition has finished, so it can't stall the curtain mid-fade. During the transition, MapLibre's workers start up and the slowest map tiles are fetched in advance. Shaders compile in the background where the browser supports it (`KHR_parallel_shader_compile`), and nothing is drawn with a shader that is still compiling. The HDRI and the water's shore field are worked out in web workers. On Windows, Direct3D's shader compiler is slow with long loops, so the cloud shader keeps its noise loops from being unrolled.
 
 - **Map tiles.** It works without a key, using OpenFreeMap vector tiles and AWS Terrarium elevation. For production, add a MapTiler key to `.env` as `VITE_MAPTILER_KEY=...`. The same style then loads MapTiler tiles, terrain and fonts.
 - **Positions.** `SITE` and each place's `at` in `src/data/content.js` are Google Maps pins. To move one, right-click the spot on Google Maps, click the coordinates to copy them, and paste them into `gmaps('…')`. The plot centre (`SITE`) is still approximate. `SITE.heading` rotates the ground plan to match the real plot.
