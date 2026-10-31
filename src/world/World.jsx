@@ -62,7 +62,7 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
 
   useEffect(() => {
     // The world starts once any page transition has finished: creating the map, the scene and
-    // their shaders would otherwise stall the curtain mid-sweep.
+    // their shaders would otherwise stall the curtain mid-fade.
     let stop = null
     let cancelled = false
     // Meanwhile MapLibre's workers start (on their own threads) and the first view's slowest tiles

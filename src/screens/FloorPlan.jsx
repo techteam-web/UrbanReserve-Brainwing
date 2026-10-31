@@ -65,7 +65,7 @@ function TypicalFloor() {
           {/* the bottom margin keeps the zoom buttons clear of the watermark */}
           <Swap id={id} className="relative mb-[calc(var(--watermark-h)+0.75rem)]">
             <div data-swap className="absolute inset-0">
-              <div data-mask className="absolute inset-0">
+              <div data-fade className="absolute inset-0">
                 <ZoomPan key={plan.id} src={plan.plan} alt={`${plan.label} typical floor plan`} aspect={plan.aspect} className="absolute inset-0 rounded-[1.25rem] bg-white">
                   {/* the homes, traced on the plan: brighter under the pointer, and each opens its view */}
                   <svg viewBox={plan.viewBox} className="absolute inset-0 size-full" role="group" aria-label={`Homes on the ${floor.label.toLowerCase()}`}>

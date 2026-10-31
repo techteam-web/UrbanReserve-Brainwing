@@ -29,7 +29,7 @@ export function holdIntro(tl, under = []) {
 }
 
 // Heavy start-up work (the Location world) waits for a screen transition to finish, so it can't
-// stall the curtain mid-sweep. The navigator marks each sweep; with none running this resolves at
+// stall the curtain mid-fade. The navigator marks each fade; with none running this resolves at
 // once.
 let still = Promise.resolve()
 let settle = null

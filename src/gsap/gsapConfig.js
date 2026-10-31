@@ -6,8 +6,6 @@ import { useGSAP } from '@gsap/react'
 gsap.registerPlugin(useGSAP, CustomEase, DrawSVGPlugin)
 
 CustomEase.create('grow', '0.16, 1, 0.3, 1')
-CustomEase.create('sweepIn', '0.55, 0, 0.9, 0.45')
-CustomEase.create('sweepOut', '0.1, 0.55, 0.45, 1')
 
 gsap.defaults({ ease: 'grow', duration: 1 })
 // a dropped frame pauses motion instead of making it jump ahead to catch up

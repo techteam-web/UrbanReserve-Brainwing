@@ -511,6 +511,22 @@ export const TOP_VIEW = {
   times: TOP_CENTER.scenes.map(timeOf).sort((a, b) => hour(a) - hour(b)),
 }
 
+// The colour each screen opens on, for the page transition to fade through. Location opens on its
+// preloader's veil, which is as pale as paper whatever the map beneath it.
+const PAPER = 'var(--color-paper)'
+const FOREST = 'var(--color-forest-950)'
+export const ROUTE_GROUND = {
+  landing: FOREST,
+  menu: PAPER,
+  overview: PAPER,
+  residences: PAPER,
+  floorplans: (search) => (comparison(search)?.views ? FOREST : PAPER),
+  amenities: 'var(--color-forest-900)',
+  views: FOREST,
+  location: PAPER,
+  specifications: PAPER,
+}
+
 // Images decoded behind the curtain before each screen is revealed.
 const I = (...names) => names.map(img)
 export const ROUTE_IMAGES = {

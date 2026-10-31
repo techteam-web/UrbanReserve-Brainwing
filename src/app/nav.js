@@ -16,15 +16,8 @@ export function idFor(pathname) {
   return ROUTES.includes(id) ? id : null
 }
 
-const depth = (id) => (id === 'landing' ? 0 : id === 'menu' ? 1 : 2)
-
-export function direction(from, to) {
-  const d = depth(to) - depth(from)
-  if (d) return Math.sign(d)
-  return ROUTES.indexOf(to) >= ROUTES.indexOf(from) ? 1 : -1
-}
-
-// Screens read this once on mount so their intro starts as the curtain clears.
+// Screens read this once on mount: on arriving through the curtain their intro starts as it lifts,
+// so the two make one fade rather than a blank pause between two.
 let delay = 0.15
 export const introDelay = () => delay
 export const setIntroDelay = (d) => {

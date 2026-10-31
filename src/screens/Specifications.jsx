@@ -12,7 +12,7 @@ export default function Specifications() {
 
   return (
     <section ref={root} className="screen grid bg-paper text-forest-900 lg:grid-cols-[0.8fr_1.2fr]">
-      <div data-mask className="relative hidden overflow-hidden bg-forest-900 lg:block">
+      <div data-fade className="relative hidden overflow-hidden bg-forest-900 lg:block">
         <img src={SPEC_IMAGE} alt="Urban Reserve at dusk" className="absolute inset-0 h-full w-full object-cover object-[50%_35%]" />
         <div className="absolute inset-0 bg-linear-to-b from-forest-950/45 via-transparent to-forest-950/55" />
         <Terrain side="left" seed={91} amp={60} className="absolute inset-y-0 right-0 h-full w-[2.6vw] text-paper" />

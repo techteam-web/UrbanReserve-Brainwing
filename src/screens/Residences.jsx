@@ -35,7 +35,7 @@ function Explore({ plan }) {
 
   return (
     <>
-      <div data-swap data-mask className="relative min-h-[46vh] lg:min-h-0">
+      <div data-swap data-fade className="relative min-h-[46vh] lg:min-h-0">
         <ZoomPan ref={zp} key={plan.id} src={plan.plan} alt={plan.title} aspect={plan.aspect} className="absolute inset-0 rounded-[1.25rem] bg-white shadow-[0_40px_60px_-50px_rgb(20_52_41/0.6)]">
           {plan.rooms.map(([name, , u, v], i) => (
             <Pin key={name} u={u} v={v} label={name} active={room === i} onClick={() => pick(i)} />
@@ -78,7 +78,7 @@ function Compare({ a, setA, b, setB }) {
   const pick = (i) => setRoom(room === i ? null : i)
   return (
     <>
-      <div data-swap data-mask className="grid min-h-[60vh] grid-cols-2 gap-3 lg:min-h-0">
+      <div data-swap data-fade className="grid min-h-[60vh] grid-cols-2 gap-3 lg:min-h-0">
         {[
           [A, setA, b],
           [B, setB, a],

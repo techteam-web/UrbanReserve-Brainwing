@@ -75,7 +75,7 @@ export default function Menu() {
 
       <Botanical kind="leaf" seed={6} depth={14} className="bottom-0 left-[39%] hidden w-[9vw] text-forest-700/15 lg:block" />
 
-      <aside data-mask className="absolute inset-y-0 right-0 hidden w-[46%] lg:block">
+      <aside data-fade className="absolute inset-y-0 right-0 hidden w-[46%] lg:block">
         <Terrain side="left" seed={29} amp={70} className="absolute inset-y-0 left-0 h-full w-[4.2vw] text-forest-900" />
         <div className="absolute inset-y-0 left-[4.1vw] right-0 overflow-hidden bg-forest-900">
           {ITEMS.map((s) => (
