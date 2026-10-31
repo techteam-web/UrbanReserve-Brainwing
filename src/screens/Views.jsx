@@ -1,18 +1,12 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useIntro, useTone } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
-import { FLOOR_PLANS, PLAN_UP, TOP_VIEW, TOWERS, towerFloor } from '../data/content'
-import HEADINGS from '../data/headings.json'
+import { facingOf, FLOOR_PLANS, TOP_VIEW, TOWERS, towerFloor } from '../data/content'
+import { SCENES } from '../data/scenes'
+import { Toggle } from '../components/ui'
 
 const PanoramaViewer = lazy(() => import('../components/PanoramaViewer'))
 
-// each scene with how far it is turned from the others of its group (npm run headings), so the view
-// can keep facing the same way across towers and floors, and across the top view's times of day,
-// which were shot from one spot facing alike
-const SCENES = [
-  ...TOWERS.flatMap((t) => t.floors).map((f) => ({ ...f, group: 'towers' })),
-  ...TOP_VIEW.times.map((t) => ({ ...t, group: 'top' })),
-].map((s) => ({ ...s, heading: HEADINGS[s.key] ?? 0 }))
 // the floor nearest an elevation, so switching tower keeps the visitor at the same height
 const nearest = (floors, height) => floors.reduce((a, b) => (Math.abs(b.height - height) < Math.abs(a.height - height) ? b : a))
 // The towers and the top view take turns in one place in the panel, so swapping them keeps its size
@@ -26,7 +20,7 @@ function fromFloorPlan(search) {
   if (!TOWERS.some((t) => t.id === q.get('tower'))) return null
   const { tower, floor } = towerFloor(search)
   const flat = FLOOR_PLANS.find((p) => p.id === tower.id)?.flats.find((f) => f.id === Number(q.get('flat')))
-  return { tower, floor, flat, facing: flat ? { group: 'towers', angle: PLAN_UP + (flat.faces * Math.PI) / 180 } : null }
+  return { tower, floor, flat, facing: flat ? facingOf(flat) : null }
 }
 
 // Back to the floor plan a home's view was opened from.
@@ -39,23 +33,6 @@ function BackToPlan({ flat, onClick, className = '', ...rest }) {
     >
       <span aria-hidden="true">←</span>
       Flat {flat.id} · Floor plan
-    </button>
-  )
-}
-
-// Puts the top view in place of the towers, and back.
-function TopToggle({ on, onChange }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={`label flex w-full items-center justify-between gap-3 rounded-full border bg-forest-950/40 py-2.5 pl-5 pr-3 text-[max(0.62rem,9px)] transition-colors duration-500 ${on ? 'border-gold/60 text-gold-lit' : 'border-ivory/15 text-ivory/70 hover:text-ivory'}`}
-    >
-      Top View
-      <span aria-hidden="true" className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-500 ${on ? 'bg-gold' : 'bg-ivory/15'}`}>
-        <span className={`absolute left-0.75 top-0.75 size-3.5 rounded-full transition-[translate,background-color] duration-500 ease-[cubic-bezier(.16,1,.3,1)] ${on ? 'translate-x-4 bg-forest-950' : 'bg-ivory/80'}`} />
-      </span>
     </button>
   )
 }
@@ -212,7 +189,7 @@ export default function Views() {
           >
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
             {back && <BackToPlan flat={from.flat} onClick={back} className="mb-2 w-full py-1.5" />}
-            <TopToggle on={top} onChange={setTop} />
+            <Toggle label="Top View" on={top} onChange={setTop} className="w-full" />
             <div className="mt-2 grid grid-cols-1">
               <div inert={top} className={layer(!top)}>
                 <TowerSwitch value={towerId} onChange={setTowerId} />
@@ -250,7 +227,7 @@ export default function Views() {
             className={`pointer-events-auto relative w-full max-w-md border border-ivory/10 bg-forest-950/80 p-3 backdrop-blur-xl transition-opacity duration-700 ${open ? '' : 'opacity-0'}`}
           >
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
-            <TopToggle on={top} onChange={setTop} />
+            <Toggle label="Top View" on={top} onChange={setTop} className="w-full" />
             <div className="mt-2 grid grid-cols-1">
               <div inert={top} className={layer(!top)}>
                 <TowerSwitch value={towerId} onChange={setTowerId} />
