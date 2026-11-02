@@ -3,7 +3,7 @@
  * quick clicks overlap instead of cutting each other off. The file is decoded ahead of time (an
  * offline context needs no user gesture); the context that plays it is made on the first click,
  * which is one. The recording opens with a little silence, so it plays from just before the
- * click itself.
+ * click itself. The sound switch leaves it alone: it only turns the background ambience on and off.
  */
 const FILE = '/audio/Click.mp3'
 const VOLUME = 0.9

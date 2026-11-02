@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Observer } from 'gsap/Observer'
 import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
-import { useIntro, useTone, playIn } from '../hooks/useIntro'
+import { useIntro, playIn } from '../hooks/useIntro'
 import { holdIntro } from '../app/gate'
 import { OVERVIEW } from '../data/content'
 import { Mark } from '../art/Brand'
@@ -185,11 +185,11 @@ function Lobby() {
 }
 
 const SLIDES = [
-  { id: 'living', label: 'Living', tone: 'light', C: Breaker },
-  { id: 'welcome', label: 'Welcome', tone: 'dark', C: Welcome },
-  { id: 'vision', label: 'Vision', tone: ['light', 'ember'], C: Vision },
-  { id: 'building', label: 'Building', tone: 'dark', C: Building },
-  { id: 'lobby', label: 'Lobby', tone: 'dark', C: Lobby },
+  { id: 'living', label: 'Living', C: Breaker },
+  { id: 'welcome', label: 'Welcome', C: Welcome },
+  { id: 'vision', label: 'Vision', C: Vision },
+  { id: 'building', label: 'Building', C: Building },
+  { id: 'lobby', label: 'Lobby', C: Lobby },
 ]
 const PAGER_TONE = ['light', 'dark', 'light', 'dark', 'dark']
 // How long a slide stays before the next one comes in by itself (seconds, counted from the moment
@@ -206,8 +206,8 @@ function Arrow({ flip = false }) {
 
 /**
  * The overview as a run of slides. They can be paged with the wheel, a swipe, the arrow keys or the
- * controls along the foot of the screen, and they move on by themselves: the mark for the slide on
- * show fills up with the time left, and the last leads back round to the first.
+ * controls just above the dock, and they move on by themselves: the mark for the slide on show fills
+ * up with the time left, and the last leads back round to the first.
  */
 export default function Overview() {
   const root = useRef(null)
@@ -215,7 +215,6 @@ export default function Overview() {
   const cur = useRef(0)
   const until = useRef(0)
   const [idx, setIdx] = useState(0)
-  useTone(SLIDES[idx].tone)
   useIntro(root)
 
   // the slide controls, once the slides are wired up: go(n), next(), prev()
@@ -310,16 +309,17 @@ export default function Overview() {
   const pagerSkin = dark ? 'border-ivory/15 bg-forest-950/40' : 'border-forest-900/15 bg-white/55'
 
   return (
-    <section ref={root} className="screen bg-forest-950">
+    // the slides keep their words clear of the controls as well as the dock
+    <section ref={root} className="screen bg-forest-950 [--chrome-bot:calc(var(--dock-band)+3.5rem)]">
       {SLIDES.map(({ id, C }, i) => (
         <div key={id} data-slide data-defer={i ? '' : undefined} className="absolute inset-0 overflow-hidden">
           <C />
         </div>
       ))}
 
-      {/* the slide controls: arrows either side of a mark per slide, the active one filling up with
-          the time left before the next slide comes in on its own */}
-      <div ref={pager} className={`absolute bottom-0 left-1/2 z-10 flex h-(--chrome-bot) -translate-x-1/2 items-center transition-colors duration-700 ${pagerInk}`}>
+      {/* the slide controls, floating just above the dock: arrows either side of a mark per slide,
+          the active one filling up with the time left before the next slide comes in on its own */}
+      <div ref={pager} className={`absolute bottom-(--dock-band) left-1/2 z-10 mb-1 flex -translate-x-1/2 items-center transition-colors duration-700 ${pagerInk}`}>
         <div role="group" aria-label="Overview slides" className={`flex items-center rounded-full border p-1 backdrop-blur-md transition-colors duration-700 ${pagerSkin}`}>
           <button onClick={() => nav.current.prev()} className="grid size-9 shrink-0 place-items-center rounded-full transition-colors duration-300 hover:bg-current/10" aria-label="Previous slide">
             <Arrow flip />

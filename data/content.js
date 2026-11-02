@@ -13,19 +13,38 @@ export const BRAND = {
   web: 'www.urbanreserve.com',
 }
 
+// The pages, in the dock's order after Home; `icon` names a path in components/iconPaths.js
 export const SECTIONS = [
-  { id: 'overview', label: 'Overview', blurb: 'A private forest sanctuary, grown into the city.', preview: img('forest') },
-  { id: 'residences', label: 'Residences', blurb: '2 & 3 BHK homes with deep, planted balconies.', preview: img('home-bedroom') },
-  { id: 'floorplans', label: 'Floor Plans', blurb: 'Explore the layouts of your future home.', preview: img('lobby') },
-  { id: 'amenities', label: 'Amenities', blurb: '40+ amenities across forest trails and the E-Deck.', preview: img('ca-pool') },
-  { id: 'views', label: 'Views', blurb: 'Look around the reserve in immersive 360°.', preview: img('tower-dusk') },
-  { id: 'location', label: 'Location', blurb: 'Schools, hospitals and malls within minutes.', preview: img('location-map') },
-  { id: 'specifications', label: 'Specifications', blurb: 'Secure, automated and quietly sustainable.', preview: img('tower-day') },
+  { id: 'overview', label: 'Overview', icon: 'overview' },
+  { id: 'residences', label: 'Residences', icon: 'sofa' },
+  { id: 'floorplans', label: 'Floor Plans', icon: 'plan' },
+  { id: 'amenities', label: 'Amenities', icon: 'pool' },
+  { id: 'views', label: 'Views', icon: 'turn' },
+  { id: 'location', label: 'Location', icon: 'pin' },
+  { id: 'specifications', label: 'Specifications', icon: 'sheet' },
 ]
+
+// The intro film: a silent web cut of public/video/urbanHome.mp4 (H.264, CRF 27, no audio track,
+// index first so it streams),
+// 4 s through the forest and out at the towers. `turn` is where one shot morphs into the next
+// (seconds, read off its frames: the leaves part from 1.55 s and the towers stand clear by 2.0 s);
+// the logo draws itself over it.
+export const INTRO = {
+  film: '/video/intro.mp4',
+  poster: '/video/intro-poster.webp',
+  turn: [1.55, 2.0],
+}
 
 export const LANDING = {
   eyebrow: 'A forest sanctuary in the city',
-  image: img('forest-canopy'),
+  body: 'A private forest sanctuary, grown into the city.',
+  image: img('tower-dusk'),
+  texture: img('forest-canopy'),
+  facts: [
+    { value: '2 & 3', label: 'BHK homes' },
+    { value: '40+', label: 'Amenities' },
+    { value: '2', label: 'Towers' },
+  ],
 }
 
 export const OVERVIEW = {
@@ -517,7 +536,6 @@ const PAPER = 'var(--color-paper)'
 const FOREST = 'var(--color-forest-950)'
 export const ROUTE_GROUND = {
   landing: FOREST,
-  menu: PAPER,
   overview: PAPER,
   residences: PAPER,
   floorplans: (search) => (comparison(search)?.views ? FOREST : PAPER),
@@ -530,8 +548,7 @@ export const ROUTE_GROUND = {
 // Images decoded behind the curtain before each screen is revealed.
 const I = (...names) => names.map(img)
 export const ROUTE_IMAGES = {
-  landing: [LANDING.image],
-  menu: SECTIONS.map((s) => s.preview),
+  landing: [LANDING.image, LANDING.texture],
   overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
   residences: [RESIDENCES[0].plan, RESIDENCES[0].key],
   floorplans: (search) => {

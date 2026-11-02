@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { useIntro, useTone } from '../hooks/useIntro'
+import { useIntro } from '../hooks/useIntro'
 import { AMENITY_LEVELS } from '../data/content'
 import { Tabs, Swap, Lightbox, Bullets } from '../components/ui'
 import Botanical from '../art/Botanical'
@@ -22,7 +22,6 @@ export default function Amenities() {
   const [id, setId] = useState(AMENITY_LEVELS[0].id)
   const [photo, setPhoto] = useState(null)
   const close = useCallback(() => setPhoto(null), [])
-  useTone('dark')
   useIntro(root)
 
   const lvl = AMENITY_LEVELS.find((l) => l.id === id)

@@ -17,7 +17,9 @@ export function setCovered(reason, on) {
   held.forEach((under, tl) => {
     if (!open(under)) return
     held.delete(tl)
-    tl.play()
+    // one killed while it waited (its screen has gone, or React's dev double-run reverted it) has no
+    // parent, and play() would bring it back to life
+    if (tl.parent) tl.play()
   })
 }
 

@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { useIntro, useTone } from '../hooks/useIntro'
+import { useIntro } from '../hooks/useIntro'
 import { SPECS, SPEC_IMAGE } from '../data/content'
 import { Bullets } from '../components/ui'
 import Botanical from '../art/Botanical'
@@ -7,7 +7,6 @@ import Terrain from '../art/Terrain'
 
 export default function Specifications() {
   const root = useRef(null)
-  useTone(['dark', 'light'])
   useIntro(root)
 
   return (

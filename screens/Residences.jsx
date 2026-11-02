@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { useIntro, useTone } from '../hooks/useIntro'
+import { useIntro } from '../hooks/useIntro'
 import { RESIDENCES, INTERIORS } from '../data/content'
 import { Swap, Lightbox, Icon, Segmented } from '../components/ui'
 import ZoomPan, { Pin } from '../components/ZoomPan'
@@ -138,7 +138,6 @@ export default function Residences() {
   const [other, setOther] = useState(RESIDENCES[1].id)
   const [photo, setPhoto] = useState(null)
   const close = useCallback(() => setPhoto(null), [])
-  useTone('light')
   useIntro(root)
 
   const plan = RESIDENCES.find((r) => r.id === id)

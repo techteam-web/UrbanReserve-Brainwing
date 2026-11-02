@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { useIntro, useTone } from '../hooks/useIntro'
+import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { decodeImages } from '../app/decode'
 import { compareQuery, facingOf, FLOOR_PLANS, floorsOf, ROOM_ORDER, TOWERS, UNITS } from '../data/content'
@@ -145,7 +145,6 @@ function Rooms({ homes, onViews, className = '' }) {
 export function ComparePlans({ homes }) {
   const root = useRef(null)
   const { go } = useNav()
-  useTone('light')
   useIntro(root)
   // the other homes are a tap away
   useEffect(() => {
@@ -195,7 +194,6 @@ export function CompareViews({ homes }) {
   const looks = useRef(facing.map((f) => ({ angle: f.angle, pitch: 0, fov: 1 })))
   const apart = useRef({ angle: facing[1].angle - facing[0].angle, pitch: 0, fov: 1 })
   const following = useRef(false)
-  useTone('dark')
   useIntro(root)
 
   const onTurn = (i, look) => {
