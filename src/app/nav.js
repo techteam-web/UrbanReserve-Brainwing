@@ -5,9 +5,10 @@ export const NavContext = createContext(null)
 export const useNav = () => useContext(NavContext)
 
 export const SECTION_IDS = SECTIONS.map((s) => s.id)
-export const ROUTES = ['landing', 'menu', ...SECTION_IDS]
+// 'landing' is Home, at '/'
+export const ROUTES = ['landing', ...SECTION_IDS]
 
-export const isPage = (id) => id !== 'landing' && id !== 'menu'
+export const isPage = (id) => id !== 'landing'
 
 export const pathFor = (id) => (id === 'landing' ? '/' : `/${id}`)
 

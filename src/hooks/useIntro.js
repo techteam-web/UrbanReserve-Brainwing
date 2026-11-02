@@ -1,6 +1,5 @@
-import { useLayoutEffect } from 'react'
 import { gsap, useGSAP, reduced, lite, DRAWABLE } from '../gsap/gsapConfig'
-import { introDelay, useNav } from '../app/nav'
+import { introDelay } from '../app/nav'
 import { holdIntro } from '../app/gate'
 
 /**
@@ -45,14 +44,4 @@ export function playIn(el, delay = 0) {
   if (lines.length) tl.fromTo(lines, { drawSVG: 0 }, { drawSVG: '100%', duration: 2.2, stagger: { amount: 1 }, ease: 'power2.inOut' }, 0.15)
   if (fills.length) tl.fromTo(fills, { fillOpacity: 0 }, { fillOpacity: 1, duration: 1.5, stagger: { amount: 1 }, ease: 'power1.inOut' }, lite() ? 0.3 : 1.3)
   return tl
-}
-
-// `tone` is 'dark' | 'light' | [leftTone, rightTone]; compared by value so inline arrays are safe.
-export function useTone(tone) {
-  const { setTone } = useNav()
-  const key = [tone].flat().join('|')
-  useLayoutEffect(() => {
-    const parts = key.split('|')
-    setTone(parts.length > 1 ? parts : parts[0])
-  }, [key, setTone])
 }

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { setCovered } from '../app/gate'
 import { playClick, preloadClick } from '../app/sound'
-import { useIntro, useTone } from '../hooks/useIntro'
+import { useIntro } from '../hooks/useIntro'
 import { LOCATION, OVERVIEW } from '../data/content'
 import { Icon, Swap } from '../components/ui'
 import { gsap } from '../gsap/gsapConfig'
@@ -63,7 +63,7 @@ function BarButton({ on, lit, onClick, label, children, ...aria }) {
 }
 
 /*
- * The neighbourhood's places in a bar along the foot of the screen, by kind (on desktop; the
+ * The neighbourhood's places in a bar floating just above the dock, by kind (on desktop; the
  * stacked layout keeps its chips). A kind lights every place of that kind on the map, with their
  * routes, and the card lists them; picking one there flies to it. The map keeps the whole width
  * between the rail's title and the card.
@@ -74,7 +74,7 @@ function PlacesBar({ show, stop, onStop }) {
   return (
     <div
       inert={!show}
-      className={`absolute bottom-0 left-1/2 z-10 flex h-(--chrome-bot) -translate-x-1/2 items-center transition-[opacity,translate] duration-700 max-lg:hidden ${show ? '' : 'pointer-events-none translate-y-3 opacity-0'}`}
+      className={`absolute bottom-(--dock-band) left-1/2 z-10 mb-1 flex -translate-x-1/2 items-center transition-[opacity,translate] duration-700 max-lg:hidden ${show ? '' : 'pointer-events-none translate-y-3 opacity-0'}`}
     >
       <nav aria-label="Places nearby" className="flex items-center gap-1 rounded-full border border-ivory/12 bg-forest-950/75 p-1 shadow-[0_24px_60px_-24px_rgb(0_0_0/0.8)] backdrop-blur-xl">
         <BarButton label="Overview" lit={stop === 'neighbourhood'} onClick={() => onStop('neighbourhood')} aria-pressed={stop === 'neighbourhood'}>
@@ -352,8 +352,6 @@ export default function Location() {
   useEffect(() => {
     if (through) setCovered('world', false)
   }, [through])
-  // the header reads dark over the preloader and the clouds, light over the map
-  useTone(through ? 'dark' : 'light')
   useIntro(root)
   // every button on the page clicks (the map's pins too)
   useEffect(() => {

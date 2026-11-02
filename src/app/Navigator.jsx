@@ -9,6 +9,7 @@ import { ROUTE_GROUND, ROUTE_IMAGES } from '../data/content'
 
 // What a screen's images or colour are can depend on its query (the floor a home's view opens on).
 const forRoute = (value, search) => (typeof value === 'function' ? value(search) : value)
+const imagesFor = (id, search) => forRoute(ROUTE_IMAGES[id], search) ?? []
 
 /**
  * React Router owns the URL; this owns *when* the screen changes. A new location starts a fade, and
@@ -19,8 +20,9 @@ function createDirector(initialId, setShown) {
   const d = {
     current: initialId,
     lastPage: isPage(initialId) ? initialId : null,
-    // and its query, so leaving the menu returns to the same view (a floor plan's tower, a home's view)
-    lastSearch: isPage(initialId) ? window.location.search : '',
+    // the query each page was last shown with, so its tab in the dock returns to the same view
+    // (a floor plan's tower, a home's view, a comparison)
+    searches: isPage(initialId) ? { [initialId]: window.location.search } : {},
     busy: false,
     queued: null,
     curtain: null,
@@ -32,15 +34,13 @@ function createDirector(initialId, setShown) {
         return
       }
       if (to === d.current) {
-        if (isPage(to)) d.lastSearch = location.search
+        if (isPage(to)) d.searches[to] = location.search
         setShown(location)
         return
       }
       d.busy = true
       setTransition(true)
-      // the menu's preview panel is desktop-only, so phones skip decoding its seven photos
-      const desktop = window.matchMedia('(min-width: 64rem) and (orientation: landscape)').matches
-      const ready = decodeImages(to === 'menu' && !desktop ? [] : (forRoute(ROUTE_IMAGES[to], location.search) ?? []))
+      const ready = decodeImages(imagesFor(to, location.search))
       const tl = d.curtain.cover(
         forRoute(ROUTE_GROUND[to], location.search),
         () => {
@@ -48,7 +48,7 @@ function createDirector(initialId, setShown) {
           d.current = to
           if (isPage(to)) {
             d.lastPage = to
-            d.lastSearch = location.search
+            d.searches[to] = location.search
           }
           flushSync(() => setShown(location))
         },
@@ -70,7 +70,6 @@ export default function Navigator({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [shown, setShown] = useState(location)
-  const [tone, setTone] = useState('dark')
   const curtain = useRef(null)
   const director = useRef(null)
 
@@ -84,17 +83,20 @@ export default function Navigator({ children }) {
   }, [])
 
   useEffect(() => {
-    director.current?.run(location)
-  }, [location])
+    // an address with no screen (an old /menu link) goes Home
+    if (!idFor(location.pathname)) navigate(pathFor('landing'), { replace: true })
+    else director.current?.run(location)
+  }, [location, navigate])
 
   const route = idFor(shown.pathname) ?? 'landing'
 
+  // Esc leaves a page for Home, and from Home goes back to the page it came from
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       const d = director.current
-      if (isPage(d.current)) navigate(pathFor('menu'))
-      else if (d.current === 'menu') navigate(pathFor(d.lastPage ?? 'landing') + d.lastSearch)
+      if (isPage(d.current)) navigate(pathFor('landing'))
+      else if (d.lastPage) navigate(pathFor(d.lastPage) + (d.searches[d.lastPage] ?? ''))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -104,17 +106,16 @@ export default function Navigator({ children }) {
     () => ({
       route,
       shown,
-      tone,
-      setTone,
       // going where the address already is (a second click while the curtain runs) adds no history entry
       go: (id, search = '', { replace = false } = {}) => {
         const to = pathFor(id) + search
         navigate(to, { replace: replace || to === location.pathname + location.search })
       },
-      lastPage: () => director.current?.lastPage ?? null,
-      lastSearch: () => director.current?.lastSearch ?? '',
+      searchOf: (id) => director.current?.searches[id] ?? '',
+      // decodes a screen's images ahead of a likely visit (a pointer resting on its tab)
+      warm: (id) => decodeImages(imagesFor(id, director.current?.searches[id] ?? '')),
     }),
-    [route, shown, tone, navigate, location],
+    [route, shown, navigate, location],
   )
 
   return (

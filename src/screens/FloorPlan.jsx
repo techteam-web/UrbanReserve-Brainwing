@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useIntro, useTone } from '../hooks/useIntro'
+import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { comparison, FLOOR_PLANS, floorsOf, TOWERS, towerFloor } from '../data/content'
 import { Icon, Segmented, Swap } from '../components/ui'
@@ -18,7 +18,6 @@ function TypicalFloor() {
   const [id, setId] = useState(() => towerFloor(shown.search).tower.id)
   const [floorNo, setFloorNo] = useState(() => parseInt(towerFloor(shown.search).floor.label))
   const [hover, setHover] = useState(null)
-  useTone('light')
   useIntro(root)
 
   const plan = FLOOR_PLANS.find((p) => p.id === id)

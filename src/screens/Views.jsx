@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { useIntro, useTone } from '../hooks/useIntro'
+import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { facingOf, FLOOR_PLANS, TOP_VIEW, TOWERS, towerFloor } from '../data/content'
 import { SCENES } from '../data/scenes'
@@ -136,7 +136,6 @@ export default function Views() {
   const [top, setTop] = useState(false)
   const [time, setTime] = useState(TOP_VIEW.start.key)
   const [open, setOpen] = useState(true)
-  useTone('dark')
   useIntro(root)
 
   const tower = TOWERS.find((t) => t.id === towerId)
