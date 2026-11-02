@@ -1,7 +1,7 @@
 # Urban Reserve
 
 A full-screen, non-scrolling presentation app for Urban Reserve, built from the brochure (`260916_URBAN RESERVE BROCHURE MANUAL V1.pdf`).
-It runs as Landing → Menu → one page per section, with a quiet fade between pages, through the colour the next page opens on.
+It opens on Home, and a dock along the foot of every screen leads to Home and each section's page. The dock stays put while pages change with a quiet fade, through the colour the next page opens on.
 
 ```
 npm install
@@ -22,14 +22,16 @@ React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap
 | `src/art/` | Brand art: vector logo, `Terrain` (the cover's real torn edge), `Botanical`s traced from the brochure, `SunBirds` |
 | `src/app/FullscreenGate.jsx` | The full-screen gate. The app only runs in full screen, and the gate returns when you leave it |
 | `src/hooks/useIntro.js` | Shared entrance animation: `data-in`, `data-fade` and `data-draw` attributes |
-| `src/brand/*.svg` | Logo mark and lockup, extracted as vectors from page 1 of the brochure |
+| `src/brand/*.svg` | Logo mark and lockup, extracted as vectors from page 1 of the brochure. `logo-main.svg` is the wide logo the intro film draws, made from the trace in `public/urban-reserve-logo-main.svg`: one gold colour, its white ground dropped, and its mark, name and tagline as separate paths |
+| `public/audio/` | `ambience.m4a` is the background sound (`src/app/ambience.js`, switched at the top left of every screen): a 142 s seamless loop cut from `Nature Ambience Sleep Music.wav`, its fades trimmed and its end crossfaded into its start. `Click.mp3` is the button click, on the dock and on Location |
 | `src/world/` | The Location 3D map: map style, the reserve in three.js, clouds, camera flights and stops |
 | `public/models/` | GLB models: `urban.glb` is the building (made by `npm run building`), the three tree variants line the plot, `bird.glb` is the flock, and the fishing boats and `Yatch1` sail the creek and the sea |
 | `public/hdri/` | Lighting for the 3D scene. `meadow_2_1k.exr` is loaded; the 4K original is only the source for it |
+| `public/video/` | The intro film that opens Home (`src/app/Intro.jsx`). `intro.mp4` is a silent web cut of `urbanHome.mp4` (H.264 at CRF 27 with `-movflags +faststart`, 2.7 MB instead of 9.1 MB); `intro-poster.webp` is its first frame. Re-cut it if the film changes, and re-read `INTRO.turn`, the seconds where its two shots meet |
 
 ## Routes and hosting
 
-Each screen has its own path: `/`, `/menu`, `/overview`, `/residences`, `/amenities`, `/views`, `/location` and `/specifications`. Anything else redirects to `/`.
+Each screen has its own path: `/` (Home), `/overview`, `/residences`, `/floorplans`, `/amenities`, `/views`, `/location` and `/specifications`. Anything else, the old `/menu` included, redirects to `/`.
 
 Because these are real paths, the host must serve `index.html` for every route, or deep links and page reloads will return 404. `npm run dev` and `npm run preview` already do this. Netlify needs `/* /index.html 200` in `public/_redirects`. Vercel needs a rewrite of `/(.*)` to `/index.html`.
 

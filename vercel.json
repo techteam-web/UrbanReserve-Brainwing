@@ -10,7 +10,7 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
-      "source": "/(pano|models|hdri|bakes|audio)/(.*)",
+      "source": "/(pano|models|hdri|bakes|audio|video)/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }]
     },
     {
