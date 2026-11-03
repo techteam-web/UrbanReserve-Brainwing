@@ -7,6 +7,7 @@ import { SCENES } from '../data/scenes'
 import { Segmented, Swap, Toggle } from '../components/ui'
 import ZoomPan from '../components/ZoomPan'
 import Botanical from '../art/Botanical'
+import ModeSwitch from './ModeSwitch'
 
 const PanoramaViewer = lazy(() => import('../components/PanoramaViewer'))
 
@@ -98,7 +99,7 @@ function Rooms({ homes, onViews, className = '' }) {
   return (
     <div className={`flex min-h-0 flex-col ${className}`}>
       {/* the jodis have more rooms than fit, and touch screens show no scrollbar */}
-      <div data-in tabIndex={0} role="region" aria-label="Room sizes" className="more-below min-h-0 overflow-y-auto scrollbar-thin">
+      <div data-in tabIndex={0} role="region" aria-label="Room sizes" className="more-below paper-scrollbar min-h-0 overflow-y-auto pr-2">
         <table className="w-full text-[clamp(0.78rem,1.55vh,0.92rem)]">
           <thead className="sticky top-0 bg-paper">
             <tr className="label text-[max(0.58rem,9px)] tracking-[0.14em] text-ink/70">
@@ -151,8 +152,7 @@ export function ComparePlans({ homes }) {
     decodeImages(UNITS.map((u) => u.plan))
   }, [])
 
-  const change = (i, to) => go('floorplans', compareQuery(homes.map((h, k) => (k === i ? { ...h, ...to } : h))), { replace: true })
-  const back = () => go('floorplans', `?tower=${homes[0].tower.id}&floor=${homes[0].floor.id}`)
+  const change = (i, to) => go('residences', compareQuery(homes.map((h, k) => (k === i ? { ...h, ...to } : h))), { replace: true })
 
   return (
     <section ref={root} className="screen bg-paper text-forest-900">
@@ -161,20 +161,19 @@ export function ComparePlans({ homes }) {
       <div className="safe pane h-full">
         {/* the padding keeps the foot of the content clear of the watermark and, stacked, of the pane's fade */}
         <div className="grid min-h-full gap-[3vh] pb-[calc(var(--watermark-h)+1rem)] lg:h-full lg:grid-cols-[minmax(16rem,24%)_1fr_1fr] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-[2.5vw] lg:gap-y-[2vh]">
-          {/* stacked, the padding brings the way back out of the pane's fade under the menu */}
+          {/* stacked, the padding brings the switch out of the pane's fade under the chrome */}
           <div className="pt-4 lg:pt-0">
-            <button data-in onClick={back} className="label flex items-center gap-2 py-2 text-[max(0.62rem,9px)] text-ember-deep transition-colors duration-500 hover:text-forest-900">
-              <span aria-hidden="true">←</span>
-              Typical floor
-            </button>
-            <p data-in className="eyebrow mt-[1.5vh] text-ember">Floor Plans</p>
-            <h2 data-in className="display mt-[1.2vh] text-[clamp(1.9rem,5vh,3.7rem)] text-forest-800">Compare units</h2>
+            <p data-in className="eyebrow text-ember">Residences</p>
+            <div data-in className="mt-[1.6vh] max-w-sm">
+              <ModeSwitch />
+            </div>
+            <h2 data-in className="display mt-[2.4vh] text-[clamp(1.9rem,5vh,3.7rem)] text-forest-800">Compare units</h2>
           </div>
 
           <Side home={homes[0]} onChange={(to) => change(0, to)} className="lg:col-start-2 lg:row-span-2 lg:row-start-1" />
           <Side home={homes[1]} onChange={(to) => change(1, to)} className="lg:col-start-3 lg:row-span-2 lg:row-start-1" />
 
-          <Rooms homes={homes} onViews={() => go('floorplans', compareQuery(homes, true))} className="lg:col-start-1 lg:row-start-2" />
+          <Rooms homes={homes} onViews={() => go('residences', compareQuery(homes, true))} className="lg:col-start-1 lg:row-start-2" />
         </div>
       </div>
     </section>
@@ -212,13 +211,13 @@ export function CompareViews({ homes }) {
     apart.current = { angle: b.angle - a.angle, pitch: b.pitch - a.pitch, fov: b.fov / a.fov }
     setTogether(on)
   }
-  const pickFloor = (i, n) => go('floorplans', compareQuery(homes.map((h, k) => (k === i ? { ...h, floor: floorsOf(h.tower.id).find((f) => f.id === n) } : h)), true), { replace: true })
+  const pickFloor = (i, n) => go('residences', compareQuery(homes.map((h, k) => (k === i ? { ...h, floor: floorsOf(h.tower.id).find((f) => f.id === n) } : h)), true), { replace: true })
 
   return (
     <section ref={root} className="screen bg-forest-950 text-ivory">
       <div data-in className="absolute left-(--gutter) top-(--chrome-top) z-10 flex flex-wrap items-center gap-2">
         <button
-          onClick={() => go('floorplans', compareQuery(homes))}
+          onClick={() => go('residences', compareQuery(homes))}
           className="label flex items-center gap-2 rounded-full border border-ivory/15 bg-forest-950/70 px-4 py-2.5 text-[max(0.62rem,9px)] text-gold-lit backdrop-blur-xl transition-colors duration-500 hover:text-ivory"
         >
           <span aria-hidden="true">←</span>

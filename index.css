@@ -186,6 +186,34 @@
       linear-gradient(to top, rgb(20 52 41 / 0.18), transparent) bottom / 100% 1.25rem no-repeat scroll;
   }
 
+  /* The room lists' scrollbar: a slim pill of the forest's green on a hairline, in place of the grey
+     system bar and its arrows. Firefox, which has no such bar to restyle, takes the standard colours.
+     Chrome drops these styles from an element given the standard scrollbar-width or scrollbar-color,
+     so it must never meet Tailwind's scrollbar-thin, which sets scrollbar-width: thin. */
+  .paper-scrollbar::-webkit-scrollbar {
+    width: 12px;
+  }
+  .paper-scrollbar::-webkit-scrollbar-track {
+    background: linear-gradient(to right, transparent 5px, rgb(20 52 41 / 0.1) 5px 7px, transparent 7px);
+  }
+  .paper-scrollbar::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: rgb(20 52 41 / 0.32) padding-box;
+  }
+  .paper-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(20 52 41 / 0.55);
+  }
+  .paper-scrollbar::-webkit-scrollbar-button {
+    display: none;
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    .paper-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(20 52 41 / 0.32) transparent;
+    }
+  }
+
   [data-brand] svg {
     display: block;
     width: 100%;
@@ -278,9 +306,33 @@
   }
 }
 
-/* The dock, centred in its strip (its height is a tab plus its padding and border). */
+/* Home's picture is the intro film's last shot, so the two are framed alike: cropped the same way
+   (towards the towers, which stay in view on a narrow screen) and under the same shade, a see-through
+   green from the side the words sit on and along the foot. The film ends under that shade, and hands
+   over to Home as if the picture were its last frame. */
+.home-frame {
+  object-fit: cover;
+  object-position: 72% 40%;
+}
+.home-shade {
+  background:
+    linear-gradient(to right, rgb(13 35 29 / 0.8), rgb(13 35 29 / 0.42) 30%, rgb(13 35 29 / 0) 56%),
+    linear-gradient(to top, rgb(13 35 29 / 0.5), rgb(13 35 29 / 0) 28%);
+}
+/* stacked, the words sit at the foot */
+@media not ((width >= 64rem) and (orientation: landscape)) {
+  .home-shade {
+    background: linear-gradient(to top, rgb(13 35 29 / 0.9), rgb(13 35 29 / 0.62) 38%, rgb(13 35 29 / 0) 68%);
+  }
+}
+
+/* The dock, centred in its strip (its height is a tab plus its padding and border), and the button
+   that brings it back once it's put away, in its place. */
+:root {
+  --dock-lift: max(calc((var(--dock-band) - var(--dock-item) - 0.5rem - 2px) / 2), env(safe-area-inset-bottom));
+}
 .dock {
-  bottom: max(calc((var(--dock-band) - var(--dock-item) - 0.5rem - 2px) / 2), env(safe-area-inset-bottom));
+  bottom: var(--dock-lift);
 }
 
 /* Brainwing watermark: right gutter, just above the dock's strip so it never sits under the tabs.

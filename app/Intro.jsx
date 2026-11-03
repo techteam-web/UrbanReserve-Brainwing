@@ -19,10 +19,10 @@ function bounds(els) {
  * The intro film, silent. It starts as the app goes full screen, or at once where there is no full
  * screen to enter (phones). Where the forest turns into the towers the screen darkens and softens,
  * and the main logo (src/brand/logo-main.svg) draws itself in gold, its outline from 0 to 100% and
- * then filled, so the turn happens behind it. When the film ends it sinks into Home's dark ground
- * while the logo's words fall away and its mark flies to Home's mark, shrinking into it, and Home
- * comes up around it. The logo keeps to the film's own clock, so a stall while it loads holds the
- * logo too.
+ * then filled, so the turn happens behind it. The film's last shot is Home's picture: when it ends
+ * it settles under Home's shade, framed as Home frames it, while the logo's words fall away and its
+ * mark flies to Home's mark, shrinking into it, and Home comes up around it as if the film had
+ * stopped on it. The logo keeps to the film's own clock, so a stall while it loads holds the logo too.
  */
 export default function Intro() {
   const [on, setOn] = useState(filmPlays)
@@ -90,9 +90,9 @@ function Film({ onDone }) {
       }
       const fail = () => leave(0, 0.6)
 
-      // At the end the film sinks into Home's dark ground, the name and tagline fall away, and the mark
-      // flies to Home's mark, taking its size and colour. Home then comes up around it, its own mark
-      // already in place underneath, so the hand-over doesn't show.
+      // At the end the film settles under Home's shade, the name and tagline fall away, and the mark
+      // flies to Home's mark, taking its size and colour. Home then comes up around it, its picture
+      // and its own mark already in place underneath, so the hand-over doesn't show.
       const end = contextSafe(() => {
         const home = document.querySelector('[data-home-mark] svg')
         // nowhere on screen to land (a short phone scrolled away from it): a plain fade
@@ -111,12 +111,13 @@ function Film({ onDone }) {
         gsap
           .timeline({ onComplete: onDone })
           .to('[data-skip]', { autoAlpha: 0, duration: 0.3, ease: 'sine.inOut' }, 0)
-          .to('[data-veil]', { opacity: 1, duration: 0.9, ease: 'sine.inOut' }, 0)
+          .to('[data-veil], [data-vignette]', { opacity: 0, duration: 0.9, ease: 'sine.inOut' }, 0)
+          .to('[data-shade]', { opacity: 1, duration: 0.9, ease: 'sine.inOut' }, 0)
           .to('[data-glow]', { opacity: 0, duration: 0.6, ease: 'sine.inOut' }, 0)
           .to(words, { fillOpacity: 0, duration: 0.5, ease: 'sine.inOut' }, 0.15)
           .set(logo.current, { transformOrigin: '0 0' }, 0)
           .to(logo.current, { x, y, scale: k, color: getComputedStyle(home).color, duration: 1.2, ease: 'power3.inOut' }, 0.3)
-          // its shadow is lost against the dark by now
+          // its shadow is lost against the shade by now
           .set(logo.current, { filter: 'none' }, 0.9)
           .call(() => setCovered('intro', false), null, 1.5)
           .to(root.current, { autoAlpha: 0, duration: 0.9, ease: 'sine.inOut' }, 1.5)
@@ -169,10 +170,12 @@ function Film({ onDone }) {
 
   return (
     <section ref={root} aria-label="Intro film" className="fixed inset-0 z-85 overflow-hidden bg-forest-950 text-ivory">
-      <video ref={film} src={INTRO.film} poster={INTRO.poster} preload="auto" muted playsInline aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
-      {/* the film's edges sink a little into the forest; the veil hides its turn */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,transparent_45%,rgb(13_35_29/0.6)_100%)]" />
+      <video ref={film} src={INTRO.film} poster={INTRO.poster} preload="auto" muted playsInline aria-hidden="true" className="home-frame absolute inset-0 h-full w-full" />
+      {/* the film's edges sink a little into the forest; the veil hides its turn; Home's shade comes
+          over the last shot */}
+      <div data-vignette className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,transparent_45%,rgb(13_35_29/0.6)_100%)]" />
       <div data-veil className="absolute inset-0 bg-forest-950 opacity-0" />
+      <div data-shade className="home-shade absolute inset-0 opacity-0" />
       {/* a soft shade behind the logo keeps its finer letters clear of the bright sky */}
       <div data-glow className="absolute inset-0 bg-[radial-gradient(ellipse_42%_36%_at_50%_47%,rgb(13_35_29/0.5),transparent)] opacity-0" />
 

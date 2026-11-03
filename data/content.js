@@ -2,7 +2,7 @@ import TOWER_A from './TowerA_data.js'
 import TOWER_B from './TowerB_data.js'
 import TOP_CENTER from './TopCenterData.js'
 
-const img = (n) => `/assets/img/${n}.webp`
+export const img = (n) => `/assets/img/${n}.webp`
 
 export const BRAND = {
   name: 'Urban Reserve',
@@ -16,8 +16,7 @@ export const BRAND = {
 // The pages, in the dock's order after Home; `icon` names a path in components/iconPaths.js
 export const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: 'overview' },
-  { id: 'residences', label: 'Residences', icon: 'sofa' },
-  { id: 'floorplans', label: 'Floor Plans', icon: 'plan' },
+  { id: 'residences', label: 'Residences', icon: 'plan' },
   { id: 'amenities', label: 'Amenities', icon: 'pool' },
   { id: 'views', label: 'Views', icon: 'turn' },
   { id: 'location', label: 'Location', icon: 'pin' },
@@ -35,11 +34,11 @@ export const INTRO = {
   turn: [1.55, 2.0],
 }
 
+// Home's picture is the towers by day, the intro film's last shot (the Residences page starts from it too)
 export const LANDING = {
   eyebrow: 'A forest sanctuary in the city',
   body: 'A private forest sanctuary, grown into the city.',
-  image: img('tower-dusk'),
-  texture: img('forest-canopy'),
+  image: img('building-day'),
   facts: [
     { value: '2 & 3', label: 'BHK homes' },
     { value: '40+', label: 'Amenities' },
@@ -91,61 +90,6 @@ export const OVERVIEW = {
     image: img('lobby'),
   },
 }
-
-// rooms: [name, size, u, v], where u/v place the room's centre on the plan image (0..1)
-export const RESIDENCES = [
-  {
-    id: '2bhk',
-    label: '2 BHK',
-    title: '2 BHK Flat Layout',
-    plan: img('plan-2bhk'),
-    aspect: 1613 / 1340,
-    key: img('key-2bhk'),
-    rooms: [
-      ['Drawing room', "11'0\" × 14'0\"", 0.714, 0.155],
-      ['Dining', "10'0\" × 10'0\"", 0.643, 0.447],
-      ['Kitchen', "10'0\" × 8'0\"", 0.85, 0.482],
-      ['Bedroom 01', "11'0\" × 13'0\"", 0.4, 0.774],
-      ['Bedroom 02', "10'6\" × 13'0\"", 0.371, 0.292],
-      ['Dress', "4'7\" × 6'0\"", 0.593, 0.868],
-      ['Balcony', "6'0\" wide", 0.114, 0.533],
-    ],
-  },
-  {
-    id: '3bhk',
-    label: '3 BHK',
-    title: '3 BHK Flat Layout',
-    plan: img('plan-3bhk'),
-    aspect: 1613 / 1357,
-    key: img('key-3bhk'),
-    rooms: [
-      ['Drawing room', "11'0\" × 18'0\"", 0.714, 0.17],
-      ['Dining', "10'0\" × 10'0\"", 0.65, 0.475],
-      ['Kitchen', "10'0\" × 8'0\"", 0.857, 0.51],
-      ['Bedroom 01', "11'0\" × 13'0\"", 0.4, 0.764],
-      ['Bedroom 02', "10'0\" × 13'0\"", 0.371, 0.297],
-      ['Dress', "4'7\" × 6'0\"", 0.6, 0.874],
-      ['Balcony', "6'0\" wide", 0.114, 0.526],
-    ],
-  },
-  {
-    id: '3bhk-jodi',
-    label: '3 BHK Jodi',
-    title: '3 BHK Jodi Flat Layout',
-    plan: img('plan-3bhk-jodi'),
-    aspect: 1613 / 1340,
-    key: img('key-3bhk-jodi'),
-    rooms: [
-      ['Drawing room', "11'0\" × 14'0\"", 0.714, 0.172],
-      ['Dining', "10'0\" × 18'0\"", 0.643, 0.482],
-      ['Kitchen', "10'0\" × 8'0\"", 0.857, 0.516],
-      ['Bedroom 01', "11'0\" × 13'0\"", 0.4, 0.774],
-      ['Bedroom 02', "10'6\" × 13'0\"", 0.371, 0.301],
-      ['Dress', "4'7\" × 6'0\"", 0.6, 0.886],
-      ['Balcony', "6'0\" wide", 0.121, 0.533],
-    ],
-  },
-]
 
 /*
  * The six homes of a typical floor, as outlined in public/floorplans/tower-b/cutouts/typicalB.svg.
@@ -286,12 +230,6 @@ export const UNITS = [
   short: u.id.replace('-', '+'),
   faces: u.flats.reduce((sum, id) => sum + FLATS.find((f) => f.id === id).faces, 0) / u.flats.length,
 }))
-
-export const INTERIORS = [
-  { image: img('home-bedroom'), label: 'Master bedroom' },
-  { image: img('home-living'), label: 'Living & dining' },
-  { image: img('home-kitchen'), label: 'Kitchen' },
-]
 
 export const AMENITY_LEVELS = [
   {
@@ -473,12 +411,14 @@ export const TOWERS = [
   floors: data.scenes.map(floorOf(id)).sort((a, b) => b.height - a.height),
 }))
 
-// The tower and floor a query asks for (?tower=towerB&floor=20, as a floor plan's home links to
-// them), falling back to the first tower's starting floor.
+// The tower and floor a query asks for (?tower=towerB&floor=23, as a home's view links to them). A
+// floor without a view of its own opens on the nearest one with a view, and with no floor asked for
+// it is the first tower's starting floor.
 export function towerFloor(search) {
   const q = new URLSearchParams(search)
   const tower = TOWERS.find((t) => t.id === q.get('tower')) ?? TOWERS[0]
-  return { tower, floor: tower.floors.find((f) => parseInt(f.label) === Number(q.get('floor'))) ?? tower.start }
+  const n = Number(q.get('floor'))
+  return { tower, floor: tower.floors.find((f) => parseInt(f.label) === n) ?? (n > 0 ? viewFloor(tower.id, n) : tower.start) }
 }
 
 // The floors a tower has views from, lowest first (the E-Deck and the terrace aren't typical floors).
@@ -509,6 +449,19 @@ export function comparison(search) {
 
 export const compareQuery = (homes, views = false) => `?compare=${homes.map((h) => `${h.tower.id}.${h.unit.id}.${h.floor.id}`).join(',')}${views ? '&views' : ''}`
 
+// The floor nearest the nth that has a 360° view (every fifth one does), for a home's view and a
+// comparison of views.
+export const viewFloor = (towerId, n) => floorsOf(towerId).reduce((a, b) => (Math.abs(b.id - n) < Math.abs(a.id - n) ? b : a))
+
+// "23rd Floor", as the views name theirs
+export function floorName(n) {
+  const teen = n % 100 >= 11 && n % 100 <= 13
+  return `${n}${teen ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th')} Floor`
+}
+
+// The home a single flat makes, with its plan and rooms.
+export const unitOf = (flat) => UNITS.find((u) => u.id === String(flat.id))
+
 /*
  * The 360° view from above the middle of the site at three times of day, shot from one spot and
  * lined up alike. Tiles in public/pano/TopCenter/tiles/<scene id>/; a scene's name
@@ -528,36 +481,4 @@ export const TOP_VIEW = {
   settings: TOP_CENTER.settings,
   start: timeOf(TOP_CENTER.scenes[0]),
   times: TOP_CENTER.scenes.map(timeOf).sort((a, b) => hour(a) - hour(b)),
-}
-
-// The colour each screen opens on, for the page transition to fade through. Location opens on its
-// preloader's veil, which is as pale as paper whatever the map beneath it.
-const PAPER = 'var(--color-paper)'
-const FOREST = 'var(--color-forest-950)'
-export const ROUTE_GROUND = {
-  landing: FOREST,
-  overview: PAPER,
-  residences: PAPER,
-  floorplans: (search) => (comparison(search)?.views ? FOREST : PAPER),
-  amenities: 'var(--color-forest-900)',
-  views: FOREST,
-  location: PAPER,
-  specifications: PAPER,
-}
-
-// Images decoded behind the curtain before each screen is revealed.
-const I = (...names) => names.map(img)
-export const ROUTE_IMAGES = {
-  landing: [LANDING.image, LANDING.texture],
-  overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
-  residences: [RESIDENCES[0].plan, RESIDENCES[0].key],
-  floorplans: (search) => {
-    const compared = comparison(search)
-    if (!compared) return FLOOR_PLANS.map((p) => p.plan)
-    return compared.homes.map((h) => (compared.views ? `${h.floor.tiles}/preview.jpg` : h.unit.plan))
-  },
-  amenities: [AMENITY_LEVELS[0].plan, ...AMENITY_LEVELS[0].photos.map((p) => p.image)],
-  views: (search) => [`${towerFloor(search).floor.tiles}/preview.jpg`],
-  location: [LOCATION.map],
-  specifications: [SPEC_IMAGE],
 }
