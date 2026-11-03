@@ -13,14 +13,15 @@ const nearest = (floors, height) => floors.reduce((a, b) => (Math.abs(b.height -
 // and the toggle above them where it is.
 const layer = (shown) => `[grid-area:1/1] transition-[opacity,visibility] duration-700 ${shown ? '' : 'invisible opacity-0'}`
 
-// Opened from a home on the floor plan (?tower=towerB&floor=20&flat=3): that tower and floor, and the
-// way the home looks out, for the panorama to open facing.
+// Opened from a home on a floor plan (?tower=towerB&floor=23&flat=3): that tower, the floor nearest the
+// home's that has a view, the home's own floor to go back to, and the way the home looks out, for the
+// panorama to open facing.
 function fromFloorPlan(search) {
   const q = new URLSearchParams(search)
   if (!TOWERS.some((t) => t.id === q.get('tower'))) return null
   const { tower, floor } = towerFloor(search)
   const flat = FLOOR_PLANS.find((p) => p.id === tower.id)?.flats.find((f) => f.id === Number(q.get('flat')))
-  return { tower, floor, flat, facing: flat ? facingOf(flat) : null }
+  return { tower, floor, home: Number(q.get('floor')) || parseInt(floor.label), flat, facing: flat ? facingOf(flat) : null }
 }
 
 // Back to the floor plan a home's view was opened from.
@@ -142,8 +143,10 @@ export default function Views() {
   const floor = nearest(tower.floors, height)
   const { settings } = top ? TOP_VIEW : tower
   const toggle = { open, onClick: () => setOpen((v) => !v) }
-  // back on the tower and floor now shown (or the one the view was opened on, for the E-Deck and terrace)
-  const back = from?.flat && (() => go('floorplans', `?tower=${towerId}&floor=${parseInt(floor.label) || parseInt(from.floor.label)}`))
+  // back to the home's floor with its panel open (in the tower now shown), or, once the visitor has
+  // moved to another floor here, to that one (the E-Deck and the terrace go back to the home's own)
+  const moved = from && parseInt(floor.label) !== parseInt(from.floor.label)
+  const back = from?.flat && (() => go('residences', `?tower=${towerId}&floor=${(moved && parseInt(floor.label)) || from.home}&flat=${from.flat.id}`))
 
   return (
     <section ref={root} className="screen bg-forest-950 text-ivory">

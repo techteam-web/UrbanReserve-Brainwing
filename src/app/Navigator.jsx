@@ -5,11 +5,13 @@ import Curtain from './Curtain'
 import { NavContext, idFor, isPage, pathFor, setIntroDelay } from './nav'
 import { decodeImages } from './decode'
 import { setTransition } from './gate'
-import { ROUTE_GROUND, ROUTE_IMAGES } from '../data/content'
+import { ROUTE_GROUND, ROUTE_IMAGES, ROUTE_STEP } from '../data/routes'
 
 // What a screen's images or colour are can depend on its query (the floor a home's view opens on).
 const forRoute = (value, search) => (typeof value === 'function' ? value(search) : value)
 const imagesFor = (id, search) => forRoute(ROUTE_IMAGES[id], search) ?? []
+const groundFor = (id, search) => forRoute(ROUTE_GROUND[id], search)
+const stepFor = (id, search) => forRoute(ROUTE_STEP[id] ?? ROUTE_GROUND[id], search)
 
 /**
  * React Router owns the URL; this owns *when* the screen changes. A new location starts a fade, and
@@ -33,7 +35,9 @@ function createDirector(initialId, setShown) {
         d.queued = location
         return
       }
-      if (to === d.current) {
+      // a change within a page's screen happens in place; a move to another of its screens (see
+      // ROUTE_STEP) goes through the curtain like a new page, by any way there: a button, Back, the dock
+      if (to === d.current && stepFor(to, location.search) === stepFor(to, d.searches[to] ?? '')) {
         if (isPage(to)) d.searches[to] = location.search
         setShown(location)
         return
@@ -42,7 +46,7 @@ function createDirector(initialId, setShown) {
       setTransition(true)
       const ready = decodeImages(imagesFor(to, location.search))
       const tl = d.curtain.cover(
-        forRoute(ROUTE_GROUND[to], location.search),
+        groundFor(to, location.search),
         () => {
           setIntroDelay(0)
           d.current = to

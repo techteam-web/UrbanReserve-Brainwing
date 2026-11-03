@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { fullscreenSupported, isFullscreen } from './gate'
 
 /*
  * The background sound: a nature ambience looping quietly under the whole app (public/audio/
@@ -6,8 +7,9 @@ import { useSyncExternalStore } from 'react'
  * end crossfaded into its start). Browsers only allow sound after a visitor's tap, so it starts with
  * the first one anywhere (on desktop, the tap that takes the app full screen) unless the visitor has
  * turned it off before; that choice is remembered on the device. It plays through Web Audio so it can
- * fade in and out (an iPhone ignores an audio element's own volume), and it goes quiet while the tab
- * is hidden. The button clicks are separate and always sound.
+ * fade in and out (an iPhone ignores an audio element's own volume), and it goes quiet while the app
+ * is out of sight: its tab hidden, the window minimised, or the app out of full screen behind the
+ * gate. The button clicks are separate and always sound.
  */
 const FILE = '/audio/ambience.m4a'
 const LEVEL = 0.35
@@ -48,11 +50,12 @@ function ready() {
   return graph
 }
 
+// a fade of no length sets the level at once
 function fade(level, seconds) {
   const { context, gain } = graph
   const now = context.currentTime
   gain.gain.cancelScheduledValues(now)
-  gain.gain.setValueAtTime(gain.gain.value, now)
+  gain.gain.setValueAtTime(seconds ? gain.gain.value : level, now)
   gain.gain.linearRampToValueAtTime(level, now + seconds)
 }
 
@@ -98,6 +101,8 @@ export const useSoundPlaying = () =>
 
 // The first tap anywhere starts it, all but a tap on the switch itself, which decides for itself.
 function first(e) {
+  // Esc and the like can't take the app full screen, so they don't start the sound behind the gate
+  if (e.type === 'keydown' && navigator.userActivation?.isActive === false) return
   if (e.target.closest?.('[data-sound-switch]')) return
   if (wanted && !playing) start()
 }
@@ -108,8 +113,18 @@ function disarm() {
 window.addEventListener('click', first, true)
 window.addEventListener('keydown', first, true)
 
-document.addEventListener('visibilitychange', () => {
+// It sounds only while the app is in sight. Leaving full screen brings the gate over it, and the
+// sound fades out with it; a hidden tab or a minimised window can be frozen at any moment, so there
+// it stops at once. Either way it fades back in as the visitor returns.
+function follow() {
   if (!graph || !wanted) return
-  if (document.hidden) audio.pause()
+  if (document.hidden) {
+    clearTimeout(pausing)
+    fade(0, 0)
+    audio.pause()
+  } else if (fullscreenSupported() && !isFullscreen()) stop()
   else start()
-})
+}
+document.addEventListener('visibilitychange', follow)
+document.addEventListener('fullscreenchange', follow)
+document.addEventListener('webkitfullscreenchange', follow)

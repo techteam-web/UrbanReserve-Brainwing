@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Map as MapLibre, prewarm } from './maplibre'
 import { gsap, reduced, lite } from '../gsap/gsapConfig'
 import { afterTransition, holdIntro } from '../app/gate'
-import { RESIDENCES, SITE } from '../data/content'
+import { SITE } from '../data/content'
 import { mapStyle, prefetch, ROUTE_LAYERS, routeReveal } from './style'
 import { createReserve } from './scene'
 import { createClouds } from './clouds'
@@ -14,7 +14,9 @@ import { HOTSPOTS, PLACES, VIEWS, enu, isHood, kindOf, kindView, litPlaces, neig
 import { SOLIDS, TOWER_H } from './site'
 import { Anchor, Badge, Hotspot, Pin, RouteLabel, Traveller } from './Markers'
 
-const LABELS = Object.fromEntries([...RESIDENCES.map((r, i) => [r.id, [i + 2, r.label]]), ['interiors', [5, 'Interiors']]])
+// the numbered points on the towers (see HOTSPOTS) keep the brochure's layout names; the Location page
+// leaves them out, and the homes themselves are on the Residences page
+const LABELS = { '2bhk': [2, '2 BHK'], '3bhk': [3, '3 BHK'], '3bhk-jodi': [4, '3 BHK Jodi'], interiors: [5, 'Interiors'] }
 
 /*
  * The way in, from high above the clouds: where the camera starts (metres above the reserve,
