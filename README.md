@@ -17,6 +17,7 @@ React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap
 | Path | What |
 | --- | --- |
 | `src/data/content.js` | All copy, images, plans, amenities, specs, contact details and panoramas |
+| `src/data/building-floors.svg` | The floors of homes traced over the towers' render, for Residences' Visual Selection: `<g id="tower_1">` (Tower A) and `<g id="tower_2">` (Tower B), each of `<polygon id="floor_N">` counted from the 5th floor up. Re-export it in the render's own 10667 × 6000 pixels. The render itself, `public/urban_reserve_day..webp`, is ignored by git; `public/assets/img/building-day.webp` is its web copy, also Home's picture |
 | `src/app/` | Routing and transitions (`Navigator.jsx`), the curtain and the chrome. React Router owns the URL; the curtain decides when the screen swaps |
 | `src/screens/` | One file per screen |
 | `src/art/` | Brand art: vector logo, `Terrain` (the cover's real torn edge), `Botanical`s traced from the brochure, `SunBirds` |
@@ -31,7 +32,7 @@ React 19 + Vite, Tailwind v4 (theme tokens in `src/index.css`), GSAP with `@gsap
 
 ## Routes and hosting
 
-Each screen has its own path: `/` (Home), `/overview`, `/residences`, `/floorplans`, `/amenities`, `/views`, `/location` and `/specifications`. Anything else, the old `/menu` included, redirects to `/`.
+Each screen has its own path: `/` (Home), `/overview`, `/residences`, `/amenities`, `/views`, `/location` and `/specifications`. Old `/floorplans` links open `/residences`, which took over the floor plans. Anything else, the old `/menu` included, redirects to `/`.
 
 Because these are real paths, the host must serve `index.html` for every route, or deep links and page reloads will return 404. `npm run dev` and `npm run preview` already do this. Netlify needs `/* /index.html 200` in `public/_redirects`. Vercel needs a rewrite of `/(.*)` to `/index.html`.
 

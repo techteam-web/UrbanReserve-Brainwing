@@ -25,3 +25,7 @@ dist-ssr
 
 # raw 3D exports (hundreds of MB): scripts/building.mjs turns them into public/models/urban.glb
 models-src
+
+# the 10667 x 6000 render the floors in src/data/building-floors.svg are traced on; the app shows its web
+# copy, public/assets/img/building-day.webp
+public/urban_reserve_day..webp

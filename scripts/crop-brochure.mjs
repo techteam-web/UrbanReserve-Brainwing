@@ -12,19 +12,12 @@ const GUTTER = 720
 // [name, page, x, y, w, h, opts] in 90dpi preview coordinates
 const crops = [
   ['forest', 7, 725, 52, 470, 300],
-  ['forest-canopy', 7, 255, 520, 460, 205],
   ['tower-day', 13, 612, 45, 400, 705, { gutter: true }],
   ['tower-dusk', 45, 726, 55, 448, 660],
   ['landscape', 11, 232, 40, 486, 710],
   ['leaf-texture', 11, 735, 45, 290, 235],
   ['plant', 9, 790, 110, 405, 580],
   ['lobby', 25, 275, 62, 670, 645, { gutter: true }],
-  ['plan-2bhk', 31, 352, 118, 660, 548, { gutter: true, white: [295, 95, 145, 75] }],
-  ['plan-3bhk', 35, 352, 112, 660, 555, { gutter: true, white: [295, 95, 145, 75] }],
-  ['plan-3bhk-jodi', 37, 352, 118, 660, 548, { gutter: true, white: [295, 105, 150, 75] }],
-  ['key-2bhk', 31, 1010, 98, 128, 102],
-  ['key-3bhk', 35, 1003, 96, 132, 106],
-  ['key-3bhk-jodi', 37, 1008, 102, 128, 104],
   ['plan-ground', 17, 268, 165, 675, 500, { gutter: true }],
   ['plan-edeck', 21, 268, 185, 662, 480, { gutter: true }],
   ['am-jog', 19, 725, 52, 440, 450],
@@ -39,9 +32,6 @@ const crops = [
   ['ca-dog', 41, 278, 428, 425, 270],
   ['ca-cycle', 41, 743, 430, 417, 268],
   ['ca-pool', 43, 726, 58, 450, 655],
-  ['home-bedroom', 39, 265, 58, 452, 670],
-  ['home-living', 39, 756, 96, 400, 218],
-  ['home-kitchen', 39, 756, 560, 400, 148],
   ['location-map', 15, 247, 128, 468, 607],
 ]
 
