@@ -8,13 +8,13 @@ const MODES = [
   { id: 'compare', label: 'Unit Comparison' },
 ]
 
-// Where each way in was left, so switching back returns there. The first comparison sets the first
-// tower's Flat 1 against the second tower's Flat 3.
+// Where each way in was left, so switching back returns there. The first comparison is the one an
+// empty ?compare opens: three homes, one of each kind (see `comparison`).
 const left = { visual: '', compare: compareQuery(comparison('?compare').homes) }
 
 /**
  * The two ways into the homes, at the head of Residences' screens: Visual Selection goes from the
- * towers to a floor's plan to a home on it, and Unit Comparison sets two homes side by side.
+ * towers to a floor's plan to a home on it, and Unit Comparison sets two or three homes side by side.
  */
 export default function ModeSwitch({ tone = 'light', className = '' }) {
   const { shown, go } = useNav()

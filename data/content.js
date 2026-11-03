@@ -428,19 +428,28 @@ export const floorsOf = (towerId) =>
     .map((f) => ({ ...f, id: parseInt(f.label), short: String(parseInt(f.label)) }))
     .reverse()
 
-// The two homes a comparison shows, as an address holds them (?compare=towerA.1.20,towerB.3.20, tower,
+// A comparison sets two or three homes side by side. The first one opens on three, one of each kind:
+// the first tower's Flat 1 (3 BHK), the second tower's Flat 3 (2 BHK) and the first tower's Jodi 5 + 6.
+export const MOST_COMPARED = 3
+const FIRST_COMPARED = ['towerA.1', 'towerB.3', 'towerA.5-6']
+
+// The homes a comparison shows, as an address holds them (?compare=towerA.1.20,towerB.3.20, tower,
 // home and floor of each, with &views once it is on their views), or null when it isn't a comparison.
+// What is missing or unknown is taken from the first comparison's home in its place, and a single home
+// is set against its second.
 export function comparison(search) {
   const q = new URLSearchParams(search)
   if (!q.has('compare')) return null
-  const sides = q.get('compare').split(',')
-  const homes = [0, 1].map((i) => {
+  const asked = q.get('compare').split(',').slice(0, MOST_COMPARED)
+  const sides = asked.join('') ? asked : FIRST_COMPARED
+  const homes = Array.from({ length: Math.max(2, sides.length) }, (_, i) => {
     const [towerId, unitId, floorNo] = (sides[i] ?? '').split('.')
-    const tower = TOWERS.find((t) => t.id === towerId) ?? TOWERS[i]
+    const [firstTower, firstUnit] = FIRST_COMPARED[i].split('.')
+    const tower = TOWERS.find((t) => t.id === towerId) ?? TOWERS.find((t) => t.id === firstTower)
     const floors = floorsOf(tower.id)
     return {
       tower,
-      unit: UNITS.find((u) => u.id === unitId) ?? UNITS[i * 2],
+      unit: UNITS.find((u) => u.id === unitId) ?? UNITS.find((u) => u.id === firstUnit),
       floor: floors.find((f) => f.id === Number(floorNo)) ?? floors.find((f) => f.key === tower.start.key) ?? floors[0],
     }
   })
