@@ -5,8 +5,8 @@ import { FLOOR_PLANS, LANDING, TOWERS } from './content.js'
  * The towers as they stand in the forest, for Residences' Visual Selection. The picture is Home's,
  * public/assets/img/building-day.webp, a web copy of the 10667 × 6000 render
  * (public/urban_reserve_day..webp, not in git). src/data/building-floors.svg traces each floor of homes
- * over the render at full size: <g id="tower_1"> for Tower A (the nearer one, on the left) and
- * <g id="tower_2"> for Tower B, each holding a <polygon id="floor_N"> per floor, numbered from the
+ * over the render at full size: <g id="tower_1"> for Tower B (the nearer one, on the left) and
+ * <g id="tower_2"> for Tower A, each holding a <polygon id="floor_N"> per floor, numbered from the
  * bottom. They are the 36 floors of homes, the 5th to the 40th, above the four parking levels and the
  * E-Deck. The file is read as the browser reads any SVG, so a re-export's extra layers, nested groups
  * or wrapped lines don't matter; one without the two towers leaves Residences without floors, and
@@ -20,19 +20,27 @@ const FIRST_HOME_FLOOR = 5
 const svg = new DOMParser().parseFromString(BUILDING_FLOORS, 'image/svg+xml').documentElement
 const [, , width, height] = (svg.getAttribute('viewBox') ?? `0 0 ${svg.getAttribute('width')} ${svg.getAttribute('height')}`).split(/[\s,]+/).map(Number)
 const numberIn = (id) => parseInt(id.match(/\d+/)?.[0])
+// The traced towers from left to right, and which tower each one is: the nearer one, on the left, is
+// Tower B (the user swapped the names on 2026-11-05).
+const TRACED = [
+  ['tower_1', 'towerB'],
+  ['tower_2', 'towerA'],
+]
 
 export const BUILDING = {
   image: LANDING.image,
   width,
   height,
   focus: { x: 6000, y: 600, w: 2250, h: 3750 },
-  towers: TOWERS.flatMap((tower, i) => {
-    const group = svg.querySelector(`g[id="tower_${i + 1}"]`)
-    const floors = [...(group?.querySelectorAll('polygon[id^="floor_"]') ?? [])]
+  // from left to right, as the picture has them (Building.jsx sets each floor's name on its tower's
+  // outer side, and the arrow keys go across, by this order); find a tower by its id, not its place
+  towers: TRACED.flatMap(([group, id]) => {
+    const tower = TOWERS.find((t) => t.id === id)
+    const floors = [...(svg.querySelector(`g[id="${group}"]`)?.querySelectorAll('polygon[id^="floor_"]') ?? [])]
       .map((p) => ({ n: numberIn(p.id) + FIRST_HOME_FLOOR - 1, points: (p.getAttribute('points') ?? '').trim().replace(/\s+/g, ' ') }))
       .filter((f) => f.n >= FIRST_HOME_FLOOR && f.points)
       .sort((a, b) => a.n - b.n)
-    return floors.length ? [{ id: tower.id, label: tower.label, floors }] : []
+    return tower && floors.length ? [{ id, label: tower.label, floors }] : []
   }),
 }
 if (BUILDING.towers.length !== TOWERS.length || !(width > 0 && height > 0))

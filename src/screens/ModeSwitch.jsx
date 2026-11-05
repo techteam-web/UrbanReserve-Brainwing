@@ -5,7 +5,7 @@ import { Segmented } from '../components/ui'
 
 const MODES = [
   { id: 'visual', label: 'Visual Selection' },
-  { id: 'compare', label: 'Unit Comparison' },
+  { id: 'compare', label: 'Unit finder' },
 ]
 
 // Where each way in was left, so switching back returns there. The first comparison is the one an

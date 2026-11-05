@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import { Observer } from 'gsap/Observer'
 import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
 import { useIntro, playIn } from '../hooks/useIntro'
-import { holdIntro } from '../app/gate'
 import { OVERVIEW } from '../data/content'
 import { Mark } from '../art/Brand'
 import Botanical from '../art/Botanical'
@@ -28,7 +27,6 @@ function Breaker() {
               <span key={l} data-in className="block">{l}</span>
             ))}
           </h2>
-          <p data-in className="copy mt-[3.5vh] max-w-md text-ink/75">{b.body}</p>
           <p data-in className="label mt-[5vh] hidden text-forest-900/45 md:block">Scroll, swipe, use ← → or the arrows below to explore</p>
         </div>
         <div className="flex justify-center">
@@ -60,7 +58,6 @@ function Welcome() {
             ))}
           </p>
           <p data-in className="display mt-[1vh] text-[clamp(2rem,6vh,4.8rem)] font-normal">{w.name}</p>
-          <p data-in className="copy mt-[3vh] max-w-lg text-ivory/80">{w.body}</p>
           <dl className="mt-[5vh] flex gap-[4vw]">
             {w.stats.map((s) => (
               <div key={s.label} data-in>
@@ -87,27 +84,27 @@ function Vision() {
               <span key={t} className="block">{t}</span>
             ))}
           </h2>
-          <p data-in className="copy mt-[2.5vh] max-w-md text-ink/75">{a.body}</p>
-          <img data-in src={a.image} alt="A sapling held in open hands" className="mt-[3vh] hidden h-[34vh] w-auto mix-blend-multiply lg:block" />
         </div>
       </div>
 
-      <div className="relative overflow-hidden bg-ember text-ivory">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_28%_36%,#f39247,transparent_62%),radial-gradient(ellipse_at_82%_92%,#b4470f,transparent_58%)]" />
+      {/* the forest-green half: a soft light behind the sapling, shade in the far corner */}
+      <div className="relative overflow-hidden bg-forest-700 text-ivory">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_55%,#4d8070,transparent_60%),radial-gradient(ellipse_at_92%_100%,#173b30,transparent_50%)]" />
         <img src={l.texture} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40 mix-blend-soft-light" />
-        <Botanical kind="umbel" seed={14} depth={-16} className="right-0 top-[12vh] w-[min(34%,32vh)] text-[#fbe1c7]" />
-        <Botanical kind="star" seed={9} depth={12} className="bottom-0 left-[4%] w-[66%] text-[#fbe1c7]/90" />
-        <div className="safe pane relative flex h-full flex-col justify-center-safe">
+        <Botanical kind="star" seed={9} depth={12} className="bottom-0 left-[4%] w-[66%] text-forest-400/55" />
+        {/* the heading and the sapling below it, centred together as the other half sets its heading */}
+        <div className="safe pane relative flex h-full flex-col items-center justify-center-safe text-center">
           <h2 data-in className="display text-[clamp(1.9rem,5.6vh,4.2rem)] font-normal">
             {l.title.map((t) => (
               <span key={t} className="block">{t}</span>
             ))}
           </h2>
-          <p data-in className="copy mt-[3vh] max-w-sm text-ivory/90">{l.body}</p>
+          <img data-in src={l.image} alt="A sapling held in open hands" className="mt-[3vh] hidden h-[34vh] w-auto lg:block" />
         </div>
       </div>
 
-      <Terrain side="left" seed={33} amp={65} className="absolute inset-y-0 left-[calc(50%-2.4vw)] hidden h-full w-[2.5vw] text-ember lg:block" />
+      {/* the green half's torn edge, in the tone the leaf texture gives the panel beside it */}
+      <Terrain side="left" seed={33} amp={65} className="absolute inset-y-0 left-[calc(50%-2.4vw)] hidden h-full w-[2.5vw] text-[#425841] lg:block" />
     </div>
   )
 }
@@ -133,9 +130,6 @@ function Building() {
         <Botanical kind="leaf" seed={3} depth={12} className="bottom-0 left-[3vw] hidden w-[9vw] text-gold/15 lg:block" />
         <p data-in className="eyebrow text-gold-lit">The Tower</p>
         <h2 data-in className="display mt-[2vh] text-[clamp(2.2rem,7vh,5.2rem)] font-normal">{b.title}</h2>
-        {b.body.map((p) => (
-          <p key={p} data-in className="copy mt-[2.5vh] max-w-lg text-ivory/75">{p}</p>
-        ))}
         <div data-in className="mt-[4vh] flex gap-2">
           {b.views.map((v) => (
             <button
@@ -159,25 +153,30 @@ function Building() {
   )
 }
 
+// The arrival lobby: the render as large as the screen allows, clear and still (no shade over it, no
+// slow zoom), beside a slim panel only as wide as its heading; on a portrait screen the words sit in a
+// strip below it. The render is nearly square, so a wide frame trims a little of the ceiling and the
+// floor, keeping the chandelier and the lounge.
 function Lobby() {
   const l = OVERVIEW.lobby
   return (
-    <div className="absolute inset-0 grid grid-rows-[1.2fr_1fr] bg-sand text-ivory lg:grid-cols-[1.55fr_1fr] lg:grid-rows-1">
+    <div className="absolute inset-0 grid grid-rows-[minmax(0,1fr)_auto] bg-sand text-ivory landscape:grid-cols-[minmax(0,1fr)_auto] landscape:grid-rows-1">
       <div data-fade className="relative overflow-hidden">
-        <img data-kb src={l.image} alt="The arrival lobby" className="absolute inset-0 h-full w-full object-cover will-change-transform" />
-        <div className="absolute inset-0 bg-linear-to-b from-forest-950/35 via-transparent to-forest-950/55" />
+        <img src={l.image} alt="The arrival lobby" className="absolute inset-0 h-full w-full object-cover object-[50%_45%]" />
       </div>
       <div className="relative">
-        <Terrain side="left" seed={51} amp={60} className="absolute inset-y-0 -left-[2.9vw] hidden h-full w-[3vw] text-sand lg:block" />
-        <Botanical kind="star" seed={4} depth={14} className="bottom-0 -right-[6vw] w-[30vw] max-w-none text-[#e8c29b]" />
-        <div className="safe pane relative flex h-full flex-col justify-center-safe lg:pl-[3vw]">
+        <Terrain side="left" seed={51} amp={60} className="absolute inset-y-0 left-[-2.9vw] hidden h-full w-[3vw] text-sand landscape:block" />
+        {/* beside the render it grows with the slim panel, kept short enough to stay under the words */}
+        <Botanical kind="star" seed={4} depth={14} className="bottom-0 right-[-6vw] w-[30vw] max-w-none text-[#e8c29b] landscape:w-[min(116%,55vh)]" />
+        {/* the strip below the render needs no room for the top bar, nor its fade, but its words stay
+            above the watermark, which rides over the slide controls there */}
+        <div className="safe pane relative flex h-full flex-col justify-center-safe pt-[4.5vh] portrait:pb-[calc(var(--chrome-bot)+var(--watermark-h)+0.75rem)] portrait:[mask-image:none] landscape:pt-(--chrome-top) landscape:pl-[3vw]">
           <p data-in className="eyebrow text-forest-900/70">Arrival</p>
-          <h2 data-in className="display mt-[2vh] text-[clamp(2rem,6vh,4.4rem)] font-normal">
+          <h2 data-in className="display mt-[2vh] text-[clamp(2rem,6vh,4.4rem)] font-normal landscape:text-[clamp(1.75rem,5.2vh,4rem)]">
             {l.title.map((t) => (
               <span key={t} className="block">{t}</span>
             ))}
           </h2>
-          <p data-in className="copy mt-[3vh] max-w-sm text-ivory/90">{l.body}</p>
         </div>
       </div>
     </div>
@@ -192,10 +191,6 @@ const SLIDES = [
   { id: 'lobby', label: 'Lobby', C: Lobby },
 ]
 const PAGER_TONE = ['light', 'dark', 'light', 'dark', 'dark']
-// How long a slide stays before the next one comes in by itself (seconds, counted from the moment
-// it starts to arrive). Choosing a slide by hand starts the wait again.
-const DWELL = 8
-
 function Arrow({ flip = false }) {
   return (
     <svg viewBox="0 0 24 24" className={`size-4 ${flip ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -206,12 +201,10 @@ function Arrow({ flip = false }) {
 
 /**
  * The overview as a run of slides. They can be paged with the wheel, a swipe, the arrow keys or the
- * controls just above the dock, and they move on by themselves: the mark for the slide on show fills
- * up with the time left, and the last leads back round to the first.
+ * controls just above the dock; they only move when asked, and the last leads back round to the first.
  */
 export default function Overview() {
   const root = useRef(null)
-  const pager = useRef(null)
   const cur = useRef(0)
   const until = useRef(0)
   const [idx, setIdx] = useState(0)
@@ -226,22 +219,6 @@ export default function Overview() {
       gsap.set(slides.slice(1), { visibility: 'hidden' })
       if (!reduced()) gsap.to('[data-kb]', { scale: 1.08, duration: 18, ease: 'sine.inOut', yoyo: true, repeat: -1 })
 
-      // The wait before the next slide, shown filling along the active pager mark (--p).
-      const dwell = { p: 0 }
-      let timer = null
-      const arm = (delay = 0) => {
-        timer?.kill()
-        timer = gsap.fromTo(dwell, { p: 0 }, {
-          p: 1,
-          duration: DWELL,
-          delay,
-          ease: 'none',
-          onUpdate: () => pager.current?.style.setProperty('--p', dwell.p.toFixed(4)),
-          onComplete: () => next(),
-        })
-        return timer
-      }
-
       const go = contextSafe((n) => {
         const now = performance.now()
         if (now < until.current || n === cur.current || n < 0 || n >= SLIDES.length) return
@@ -249,7 +226,6 @@ export default function Overview() {
         const to = slides[n]
         cur.current = n
         setIdx(n)
-        arm()
         if (reduced()) {
           gsap.set(from, { visibility: 'hidden' })
           gsap.set(to, { visibility: 'visible' })
@@ -275,8 +251,6 @@ export default function Overview() {
       const next = () => go((cur.current + 1) % SLIDES.length)
       const prev = () => go((cur.current - 1 + SLIDES.length) % SLIDES.length)
       nav.current = { go, next, prev }
-      // the first wait only starts once the screen is actually on show (not behind the full-screen gate)
-      holdIntro(arm(1.2))
 
       Observer.create({
         target: root.current,
@@ -296,10 +270,7 @@ export default function Overview() {
         else if (e.key === 'ArrowLeft' || e.key === 'PageUp') prev()
       }
       window.addEventListener('keydown', onKey)
-      return () => {
-        window.removeEventListener('keydown', onKey)
-        timer?.kill()
-      }
+      return () => window.removeEventListener('keydown', onKey)
     },
     { scope: root },
   )
@@ -318,8 +289,8 @@ export default function Overview() {
       ))}
 
       {/* the slide controls, floating just above the dock: arrows either side of a mark per slide,
-          the active one filling up with the time left before the next slide comes in on its own */}
-      <div ref={pager} className={`absolute bottom-(--dock-band) left-1/2 z-10 mb-1 flex -translate-x-1/2 items-center transition-colors duration-700 ${pagerInk}`}>
+          the active one drawn long and solid */}
+      <div className={`absolute bottom-(--dock-band) left-1/2 z-10 mb-1 flex -translate-x-1/2 items-center transition-colors duration-700 ${pagerInk}`}>
         <div role="group" aria-label="Overview slides" className={`flex items-center rounded-full border p-1 backdrop-blur-md transition-colors duration-700 ${pagerSkin}`}>
           <button onClick={() => nav.current.prev()} className="grid size-9 shrink-0 place-items-center rounded-full transition-colors duration-300 hover:bg-current/10" aria-label="Previous slide">
             <Arrow flip />
@@ -329,9 +300,7 @@ export default function Overview() {
               const on = idx === i
               return (
                 <button key={s.id} onClick={() => nav.current.go(i)} className="group flex items-center gap-2.5 px-2 py-2.5 sm:px-2.5" aria-label={`Show ${s.label}`} aria-current={on}>
-                  <span className={`relative h-[3px] overflow-hidden rounded-full bg-current/25 transition-[width,background-color] duration-700 ${on ? 'w-9' : 'w-3 group-hover:bg-current/50'}`}>
-                    {on && <span className="absolute inset-0 origin-left rounded-full bg-current" style={{ transform: 'scaleX(var(--p, 0))' }} />}
-                  </span>
+                  <span className={`h-[3px] rounded-full transition-[width,background-color] duration-700 ${on ? 'w-9 bg-current' : 'w-3 bg-current/25 group-hover:bg-current/50'}`} />
                   <span className={`label text-[max(0.58rem,9px)] transition-opacity duration-500 ${on ? '' : 'hidden opacity-60 group-hover:opacity-100 lg:inline'}`}>{s.label}</span>
                 </button>
               )

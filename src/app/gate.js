@@ -10,10 +10,18 @@ const covers = new Set(fullscreenSupported() && !isFullscreen() ? ['fullscreen']
 // held timeline → the covers it may play under
 const held = new Map()
 const open = (under) => [...covers].every((c) => under.includes(c))
+// things that only count time the screen is in view (the dock's rest before it tucks away)
+const watchers = new Set()
+export const covered = () => covers.size > 0
+export function watchCovers(fn) {
+  watchers.add(fn)
+  return () => watchers.delete(fn)
+}
 
 export function setCovered(reason, on) {
   if (on) covers.add(reason)
   else covers.delete(reason)
+  watchers.forEach((fn) => fn())
   held.forEach((under, tl) => {
     if (!open(under)) return
     held.delete(tl)
