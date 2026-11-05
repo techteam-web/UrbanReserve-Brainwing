@@ -37,13 +37,7 @@ export const INTRO = {
 // Home's picture is the towers by day, the intro film's last shot (the Residences page starts from it too)
 export const LANDING = {
   eyebrow: 'A forest sanctuary in the city',
-  body: 'A private forest sanctuary, grown into the city.',
   image: img('building-day'),
-  facts: [
-    { value: '2 & 3', label: 'BHK homes' },
-    { value: '40+', label: 'Amenities' },
-    { value: '2', label: 'Towers' },
-  ],
 }
 
 export const OVERVIEW = {

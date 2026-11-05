@@ -56,7 +56,7 @@ function TimeCards({ current, onPick, className = '', ...rest }) {
             className={`absolute inset-0 size-full object-cover transition-[opacity,scale] duration-700 ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-105 ${t.key === current ? '' : 'opacity-55'}`}
           />
           <span className="absolute inset-0 bg-linear-to-t from-forest-950/85 via-forest-950/20 to-transparent" />
-          <span className={`relative flex items-center gap-2.5 font-display text-[0.85rem] uppercase tracking-[0.06em] transition-colors duration-500 lg:text-[clamp(1rem,2.2vh,1.4rem)] ${t.key === current ? 'text-ivory' : 'text-ivory/70 group-hover:text-ivory'}`}>
+          <span className={`relative flex items-center gap-2.5 font-display text-[0.85rem] uppercase tracking-[0.06em] transition-colors duration-500 lg:text-[clamp(1rem,2vh,1.25rem)] ${t.key === current ? 'text-ivory' : 'text-ivory/70 group-hover:text-ivory'}`}>
             <span className={`hidden h-px w-3 origin-left bg-gold transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] lg:block ${t.key === current ? 'scale-x-100' : 'scale-x-0'}`} />
             {t.label}
           </span>
@@ -76,7 +76,7 @@ function TowerSwitch({ value, onChange }) {
           role="tab"
           aria-selected={value === t.id}
           onClick={() => onChange(t.id)}
-          className={`label relative z-10 rounded-full px-4 py-2.5 text-[max(0.62rem,9px)] transition-colors duration-500 ${value === t.id ? 'text-forest-950' : 'text-ivory/70 hover:text-ivory'}`}
+          className={`label relative z-10 rounded-full px-3 py-2.5 text-[max(0.62rem,9px)] transition-colors duration-500 ${value === t.id ? 'text-forest-950' : 'text-ivory/70 hover:text-ivory'}`}
         >
           {t.label}
         </button>
@@ -98,7 +98,7 @@ function Handle({ open, onClick, controls, down = false, className = '', ...rest
       className={`pointer-events-auto grid place-items-center rounded-full border border-ivory/15 bg-forest-950/75 text-gold-lit shadow-[0_20px_50px_-20px_rgb(0_0_0/0.8)] backdrop-blur-xl transition-[border-color,color] duration-700 hover:border-gold/60 hover:text-gold ${className}`}
     >
       <svg viewBox="0 0 24 24" className={`size-4 transition-transform duration-700 ${open ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d={down ? 'M6 9l6 6 6-6' : 'M15 6l-6 6 6 6'} />
+        <path d={down ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6'} />
       </svg>
     </button>
   )
@@ -130,6 +130,7 @@ function FloorChips({ floors, current, onPick }) {
 
 export default function Views() {
   const root = useRef(null)
+  const rail = useRef(null)
   const { shown, go } = useNav()
   const [from] = useState(() => fromFloorPlan(shown.search))
   const [towerId, setTowerId] = useState(from?.tower.id ?? TOWERS[0].id)
@@ -147,6 +148,14 @@ export default function Views() {
   // moved to another floor here, to that one (the E-Deck and the terrace go back to the home's own)
   const moved = from && parseInt(floor.label) !== parseInt(from.floor.label)
   const back = from?.flat && (() => go('residences', `?tower=${towerId}&floor=${(moved && parseInt(floor.label)) || from.home}&flat=${from.flat.id}`))
+
+  // in a window too short for the whole rail, it scrolls to keep the current floor in view, as the
+  // phones' chips do
+  useEffect(() => {
+    const el = rail.current
+    const row = el?.querySelector('[data-floors] [aria-current]')
+    if (row && el.scrollHeight > el.clientHeight) el.scrollTo({ top: row.offsetTop - (el.clientHeight - row.offsetHeight) / 2, behavior: 'smooth' })
+  }, [floor.key])
 
   return (
     <section ref={root} className="screen bg-forest-950 text-ivory">
@@ -177,17 +186,19 @@ export default function Views() {
         />
       )}
 
-      {/* desktop: the floors in a rail down the left that slides off the edge, leaving its handle
-          (the slide is on a wrapper: the rail's own transform belongs to the page's entrance) */}
-      <div className="safe pointer-events-none absolute inset-0 hidden flex-col justify-center lg:flex">
-        <div className={`relative flex max-h-full min-h-0 w-[clamp(16rem,18vw,21rem)] flex-col transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${open ? '' : '-translate-x-[calc(100%+var(--gutter))]'}`}>
-          <Handle {...toggle} data-in controls="views-rail" className="absolute left-full top-1/2 ml-3 h-16 w-9 -translate-y-1/2" />
+      {/* desktop: the floors in a slim rail down the right that slides off the edge, leaving its handle
+          (the slide is on a wrapper: the rail's own transform belongs to the page's entrance). It stays
+          centred, and short enough to clear the watermark beneath it; 200px keeps its 9px labels on one line. */}
+      <div className="safe pointer-events-none absolute inset-0 hidden flex-col items-end justify-center lg:flex">
+        <div className={`relative flex max-h-[calc(100%-2*var(--watermark-h)-1.5rem)] min-h-0 w-[max(15.5rem,200px)] flex-col transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${open ? '' : 'translate-x-[calc(100%+var(--gutter))]'}`}>
+          <Handle {...toggle} data-in controls="views-rail" className="absolute right-full top-1/2 mr-3 h-16 w-9 -translate-y-1/2" />
           <nav
+            ref={rail}
             id="views-rail"
             data-in
             inert={!open}
             aria-label="Towers and floors"
-            className="pointer-events-auto relative min-h-0 overflow-y-auto border border-ivory/10 bg-forest-950/70 p-[clamp(1.1rem,2.4vh,1.8rem)] shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)] backdrop-blur-xl [scrollbar-width:none]"
+            className="pointer-events-auto relative min-h-0 overflow-y-auto border border-ivory/10 bg-forest-950/70 p-[clamp(0.85rem,1.8vh,1.35rem)] shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)] backdrop-blur-xl [scrollbar-width:none]"
           >
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
             {back && <BackToPlan flat={from.flat} onClick={back} className="mb-2 w-full py-1.5" />}
@@ -195,18 +206,18 @@ export default function Views() {
             <div className="mt-2 grid grid-cols-1">
               <div inert={top} className={layer(!top)}>
                 <TowerSwitch value={towerId} onChange={setTowerId} />
-                <div className="mt-[1.6vh]">
+                <div data-floors className="mt-[1.2vh]">
                   {tower.floors.map((f) => (
                     <button
                       key={f.key}
                       onClick={() => setHeight(f.height)}
                       aria-current={f.key === floor.key || undefined}
-                      className={`relative flex w-full items-baseline gap-4 border-b border-ivory/10 py-[1vh] pl-5 text-left transition-colors duration-500 last:border-b-0 ${f.key === floor.key ? 'text-ivory' : 'text-ivory/50 hover:text-ivory/90'}`}
+                      className={`relative flex w-full items-baseline gap-4 border-b border-ivory/10 py-[0.75vh] pl-5 text-left transition-colors duration-500 last:border-b-0 ${f.key === floor.key ? 'text-ivory' : 'text-ivory/50 hover:text-ivory/90'}`}
                     >
                       <span
                         className={`absolute left-0 top-1/2 h-px w-3 origin-left -translate-y-1/2 bg-gold transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${f.key === floor.key ? 'scale-x-100' : 'scale-x-0'}`}
                       />
-                      <span className="font-display text-[clamp(1.05rem,2.3vh,1.5rem)] uppercase tracking-[0.06em]">{f.label}</span>
+                      <span className="font-display text-[clamp(1rem,2vh,1.25rem)] uppercase tracking-[0.06em]">{f.label}</span>
                     </button>
                   ))}
                 </div>
