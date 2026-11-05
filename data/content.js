@@ -43,12 +43,12 @@ export const LANDING = {
 export const OVERVIEW = {
   breaker: {
     lines: ['Naturally', 'Elevated', 'Living'],
-    body: 'Where elegant design, immersive landscapes and the restorative power of nature redefine the future of urban living.',
   },
   welcome: {
     title: 'Welcome',
     sub: ['To life beyond', 'the ordinary with'],
     name: 'Urban Reserve',
+    // the Location page's words for the reserve; the Overview keeps to its headings
     body: 'Welcome to an unparalleled forest sanctuary where elegant design, immersive landscapes, and the restorative power of nature redefine the future of urban living.',
     image: img('forest'),
     stats: [
@@ -59,20 +59,15 @@ export const OVERVIEW = {
   },
   architect: {
     title: ['Architect', 'Vision'],
-    body: 'Inspired by a forest, the landscape grows naturally through earth mounds, layered planting, and greenery creating a curated wild environment where nature and architecture grow together.',
-    image: img('plant'),
   },
   landscape: {
     title: ['Landscape', 'Architecture', 'Vision'],
-    body: 'To elevate urban living by cultivating an immersive, private woodland sanctuary that seamlessly blends refined design with a thriving, deeply restorative forest.',
+    // the sapling held in open hands, cut out of its white ground so it sits on the green
+    image: img('sapling-hands'),
     texture: img('leaf-texture'),
   },
   building: {
     title: 'Building View',
-    body: [
-      'To create a living environment where architecture and nature exist as one where built forms blend seamlessly with the landscape, creating spaces that feel open, calm, connected, and timeless.',
-      'More than buildings surrounded by greenery, Urban Reserve is conceived as an environment where architecture becomes part of the landscape and nature becomes part of everyday life.',
-    ],
     views: [
       { id: 'day', label: 'Day', image: img('tower-day') },
       { id: 'dusk', label: 'Dusk', image: img('tower-dusk') },
@@ -80,7 +75,6 @@ export const OVERVIEW = {
   },
   lobby: {
     title: ['An Elevated', 'Welcome'],
-    body: 'A refined arrival where thoughtful design, natural light and understated luxury come together setting the tone for life at Urban Reserve.',
     image: img('lobby'),
   },
 }

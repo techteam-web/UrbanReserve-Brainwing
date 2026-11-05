@@ -39,7 +39,7 @@ export const ROUTE_STEP = {
 const I = (...names) => names.map(img)
 export const ROUTE_IMAGES = {
   landing: [LANDING.image],
-  overview: [...I('forest', 'plant', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
+  overview: [...I('forest', 'sapling-hands', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
   residences: (search) => {
     const compared = comparison(search)
     if (compared) return compared.homes.map((h) => (compared.views ? `${h.floor.tiles}/preview.jpg` : h.unit.plan))

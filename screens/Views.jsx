@@ -85,21 +85,42 @@ function TowerSwitch({ value, onChange }) {
   )
 }
 
-// The tab that slides the floors away and back; its chevron points the way they will go.
-function Handle({ open, onClick, controls, down = false, className = '', ...rest }) {
+// The place on show, set up the rail's tab like a book's spine, its floor number in gold.
+function Spine({ place }) {
+  const [, number, rest] = place.match(/^(\d+\w*)\s+(.+)$/) ?? [null, null, place]
+  return (
+    <span aria-hidden="true" className="rotate-180 whitespace-nowrap font-display text-[clamp(0.95rem,1.8vh,1.15rem)] leading-none uppercase tracking-[0.06em] text-ivory [writing-mode:vertical-rl]">
+      {number && <span className="text-gold-lit">{number} </span>}
+      {rest}
+    </span>
+  )
+}
+
+// The tab that slides the floors away and back; its chevron points the way they will go. Its shape
+// comes from where it sits: a pill over the phones' sheet, a tab on the side of the desktop rail,
+// which also names the floor on show (the `place`), so it stays in sight with the floors put away.
+function Handle({ open, onClick, controls, down = false, place, className = '', ...rest }) {
+  const name = `${open ? 'Hide' : 'Show'} the floors${place ? `, ${place}` : ''}`
   return (
     <button
       {...rest}
       onClick={onClick}
       aria-expanded={open}
       aria-controls={controls}
-      aria-label={open ? 'Hide the floors' : 'Show the floors'}
-      title={open ? 'Hide the floors' : 'Show the floors'}
-      className={`pointer-events-auto grid place-items-center rounded-full border border-ivory/15 bg-forest-950/75 text-gold-lit shadow-[0_20px_50px_-20px_rgb(0_0_0/0.8)] backdrop-blur-xl transition-[border-color,color] duration-700 hover:border-gold/60 hover:text-gold ${className}`}
+      aria-label={name}
+      title={name}
+      className={`pointer-events-auto grid place-items-center border border-ivory/15 bg-forest-950/75 text-gold-lit shadow-[0_20px_50px_-20px_rgb(0_0_0/0.8)] outline-none backdrop-blur-xl transition-[border-color,background-color,color] duration-500 hover:border-gold/70 hover:bg-forest-900/90 hover:text-ivory focus-visible:ring-1 focus-visible:ring-gold-lit/70 ${className}`}
     >
       <svg viewBox="0 0 24 24" className={`size-4 transition-transform duration-700 ${open ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d={down ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6'} />
       </svg>
+      {place && (
+        <>
+          {/* the active floor's tick, as on its row in the list */}
+          <span aria-hidden="true" className="h-px w-3 bg-gold" />
+          <Spine place={place} />
+        </>
+      )}
     </button>
   )
 }
@@ -186,19 +207,24 @@ export default function Views() {
         />
       )}
 
-      {/* desktop: the floors in a slim rail down the right that slides off the edge, leaving its handle
-          (the slide is on a wrapper: the rail's own transform belongs to the page's entrance). It stays
-          centred, and short enough to clear the watermark beneath it; 200px keeps its 9px labels on one line. */}
-      <div className="safe pointer-events-none absolute inset-0 hidden flex-col items-end justify-center lg:flex">
-        <div className={`relative flex max-h-[calc(100%-2*var(--watermark-h)-1.5rem)] min-h-0 w-[max(15.5rem,200px)] flex-col transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${open ? '' : 'translate-x-[calc(100%+var(--gutter))]'}`}>
-          <Handle {...toggle} data-in controls="views-rail" className="absolute right-full top-1/2 mr-3 h-16 w-9 -translate-y-1/2" />
+      {/* desktop: the floors in a slim drawer against the right edge, with its tab on its left side;
+          the tab slides it into the edge and stays there to bring it back (the slide is on a wrapper:
+          the rail's own transform belongs to the page's entrance). It stays centred, and short enough
+          to clear the watermark beneath it; 200px keeps its 9px labels on one line. */}
+      <div className="safe pointer-events-none absolute inset-0 hidden flex-col items-end justify-center pr-0 lg:flex">
+        <div className={`relative flex max-h-[calc(100%-2*var(--watermark-h)-1.5rem)] min-h-0 w-[max(15.5rem,200px)] flex-col transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${open ? '' : 'translate-x-full'}`}>
+          {/* centred by the layout, not a translate: the entrance takes over the tab's transform, and
+              its height changes with the name of the floor */}
+          <div className="pointer-events-none absolute inset-y-0 right-full flex items-center">
+            <Handle {...toggle} data-in controls="views-rail" place={top ? 'Top View' : floor.label} className="min-h-16 w-9 gap-3 rounded-l-lg border-r-0 py-3.5" />
+          </div>
           <nav
             ref={rail}
             id="views-rail"
             data-in
             inert={!open}
             aria-label="Towers and floors"
-            className="pointer-events-auto relative min-h-0 overflow-y-auto border border-ivory/10 bg-forest-950/70 p-[clamp(0.85rem,1.8vh,1.35rem)] shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)] backdrop-blur-xl [scrollbar-width:none]"
+            className={`pointer-events-auto relative min-h-0 overflow-y-auto border border-r-0 border-ivory/10 bg-forest-950/70 p-[clamp(0.85rem,1.8vh,1.35rem)] backdrop-blur-xl transition-shadow duration-700 [scrollbar-width:none] ${open ? 'shadow-[0_50px_90px_-40px_rgb(0_0_0/0.85)]' : 'shadow-none'}`}
           >
             <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
             {back && <BackToPlan flat={from.flat} onClick={back} className="mb-2 w-full py-1.5" />}
@@ -232,7 +258,7 @@ export default function Views() {
           that drops away, leaving its handle */}
       <div data-in className="pointer-events-none absolute inset-x-0 bottom-[calc(var(--chrome-bot)+var(--watermark-h)+0.75rem)] px-(--gutter) lg:hidden">
         <div className={`flex flex-col items-center transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${open ? '' : 'translate-y-[calc(100%-2.75rem)]'}`}>
-          <Handle {...toggle} down controls="views-sheet" className="mb-2 h-9 w-16" />
+          <Handle {...toggle} down controls="views-sheet" className="mb-2 h-9 w-16 rounded-full" />
           <nav
             id="views-sheet"
             inert={!open}

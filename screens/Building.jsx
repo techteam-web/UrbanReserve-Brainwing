@@ -206,12 +206,10 @@ export default function Building() {
           <ModeSwitch tone="dark" />
         </div>
         <h2 data-in className="display mt-[3vh] text-[clamp(1.9rem,5vh,3rem)] font-light lg:text-[clamp(2.2rem,6vh,4.4rem)]">
-          Choose
+          Find your
           <br />
-          your floor
+          residence
         </h2>
-        {/* phones keep the words short, to leave the towers room */}
-        <p data-in className="copy mt-[2vh] hidden max-w-sm text-ivory/75 roomy:block lg:block">Two towers of homes, from the 5th floor to the 40th. Each floor opens its plan, and each home on it, its details.</p>
         <p data-in className="label mt-[3vh] flex items-center gap-3 text-[max(0.62rem,9px)] text-gold-lit">
           <span className="h-px w-6 shrink-0 bg-gold/60" />
           <span className="pointer-coarse:hidden">Point at a floor, click to open it</span>
