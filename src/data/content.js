@@ -219,6 +219,23 @@ export const UNITS = [
   faces: u.flats.reduce((sum, id) => sum + FLATS.find((f) => f.id === id).faces, 0) / u.flats.length,
 }))
 
+/*
+ * What the unit finder sorts the homes by, all read off their rooms: the bedrooms (a jodi adds a
+ * study), the rooms some homes have and others don't, and the flats of the floor a home takes up.
+ */
+export const bedroomsOf = (unit) => unit.rooms.filter(([name]) => name.startsWith('Bedroom')).length
+export const hasRoom = (unit, room) => unit.rooms.some(([name]) => name === room)
+export const CONFIGS = [2, 3, 4, 5].map((n) => ({ id: n, label: `${n} BHK${n > 3 ? ' + study' : ''}` }))
+export const configOf = (unit) => CONFIGS.find((c) => c.id === bedroomsOf(unit))
+export const FEATURES = ['Study', 'Powder toilet', 'Dresser', 'Utility', 'Dry yard'].map((room) => ({ id: room, label: room }))
+// "3 bedrooms · 3 toilets + powder · 2 balconies"
+export function roomsLine(unit) {
+  const count = (prefix) => unit.rooms.filter(([name]) => name.startsWith(prefix)).length
+  const many = (n, one, more) => `${n} ${n === 1 ? one : more}`
+  const toilets = many(count('Toilet'), 'toilet', 'toilets') + (hasRoom(unit, 'Powder toilet') ? ' + powder' : '')
+  return [many(bedroomsOf(unit), 'bedroom', 'bedrooms'), toilets, many(count('Balcony'), 'balcony', 'balconies')].join(' · ')
+}
+
 export const AMENITY_LEVELS = [
   {
     id: 'ground',
@@ -443,6 +460,9 @@ export function comparison(search) {
   })
   return { homes, views: q.has('views') }
 }
+
+// The unit finder's address (?units): Unit Comparison's first step, before the homes are set side by side.
+export const isFinder = (search) => new URLSearchParams(search).has('units')
 
 export const compareQuery = (homes, views = false) => `?compare=${homes.map((h) => `${h.tower.id}.${h.unit.id}.${h.floor.id}`).join(',')}${views ? '&views' : ''}`
 
