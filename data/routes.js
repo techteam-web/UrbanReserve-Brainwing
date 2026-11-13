@@ -1,4 +1,4 @@
-import { AMENITY_LEVELS, comparison, FLOOR_PLANS, img, LANDING, LOCATION, SPEC_IMAGE, towerFloor, unitOf } from './content.js'
+import { AMENITY_LEVELS, comparison, FLOOR_PLANS, img, isFinder, LANDING, LOCATION, SPEC_IMAGE, towerFloor, unitOf, UNITS } from './content.js'
 import { BUILDING, pickedFloor } from './residences.js'
 
 // What the page transition (src/app/Navigator.jsx) needs to know of each screen. A value that is a
@@ -11,12 +11,8 @@ const FOREST = 'var(--color-forest-950)'
 export const ROUTE_GROUND = {
   landing: FOREST,
   overview: PAPER,
-  // the towers and the views are dark, the plans paper
-  residences: (search) => {
-    const compared = comparison(search)
-    if (compared) return compared.views ? FOREST : PAPER
-    return pickedFloor(search) ? PAPER : FOREST
-  },
+  // the towers are dark; a floor, the unit finder and its comparisons paper
+  residences: (search) => (comparison(search) || isFinder(search) || pickedFloor(search) ? PAPER : FOREST),
   amenities: 'var(--color-forest-900)',
   views: FOREST,
   location: PAPER,
@@ -31,6 +27,7 @@ export const ROUTE_STEP = {
   residences: (search) => {
     const compared = comparison(search)
     if (compared) return compared.views ? 'views' : 'plans'
+    if (isFinder(search)) return 'finder'
     return pickedFloor(search) ? 'floor' : 'towers'
   },
 }
@@ -43,6 +40,7 @@ export const ROUTE_IMAGES = {
   residences: (search) => {
     const compared = comparison(search)
     if (compared) return compared.homes.map((h) => (compared.views ? `${h.floor.tiles}/preview.jpg` : h.unit.plan))
+    if (isFinder(search)) return UNITS.map((u) => u.plan)
     const at = pickedFloor(search)
     if (!at) return [BUILDING.image]
     // a floor's plan, the towers for its key, and the home open on it

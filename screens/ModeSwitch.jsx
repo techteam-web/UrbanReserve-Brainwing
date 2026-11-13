@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNav } from '../app/nav'
-import { comparison, compareQuery } from '../data/content'
+import { comparison, isFinder } from '../data/content'
 import { Segmented } from '../components/ui'
 
 const MODES = [
@@ -8,17 +8,16 @@ const MODES = [
   { id: 'compare', label: 'Unit finder' },
 ]
 
-// Where each way in was left, so switching back returns there. The first comparison is the one an
-// empty ?compare opens: three homes, one of each kind (see `comparison`).
-const left = { visual: '', compare: compareQuery(comparison('?compare').homes) }
+// Where each way in was left, so switching back returns there. The unit finder opens on its filters.
+const left = { visual: '', compare: '?units' }
 
 /**
  * The two ways into the homes, at the head of Residences' screens: Visual Selection goes from the
- * towers to a floor's plan to a home on it, and Unit Comparison sets two or three homes side by side.
+ * towers to a floor's plan to a home on it, and the unit finder filters the homes and compares them.
  */
 export default function ModeSwitch({ tone = 'light', className = '' }) {
   const { shown, go } = useNav()
-  const mode = comparison(shown.search) ? 'compare' : 'visual'
+  const mode = comparison(shown.search) || isFinder(shown.search) ? 'compare' : 'visual'
   useEffect(() => {
     left[mode] = shown.search
   }, [mode, shown.search])

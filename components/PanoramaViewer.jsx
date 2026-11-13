@@ -12,10 +12,12 @@ import { reduced } from '../gsap/gsapConfig'
  * the scene's heading, so one angle faces the same way in every scene of the group.
  * `onTurn` hears every turn of the view as { angle, pitch, fov }, and the ref's `turnTo` takes the
  * same, so one viewer can follow another. A turnTo reports back before it returns.
+ * `still` makes it a picture: it can't be dragged, turned or zoomed, takes no pointer at all (so a
+ * touch scrolls the page under it), and a `facing` may then also set its tilt and field of view.
  */
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a))
 
-const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, autorotate = true, mouseViewMode = 'drag', facing = null, onTurn }, ref) {
+const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, autorotate = true, mouseViewMode = 'drag', facing = null, still = false, onTurn }, ref) {
   const host = useRef(null)
   const state = useRef({})
   const turned = useEffectEvent((look) => onTurn?.(look))
@@ -29,6 +31,7 @@ const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, auto
 
   useEffect(() => {
     const viewer = new Marzipano.Viewer(host.current, { controls: { mouseViewMode }, stage: { progressive: true } })
+    if (still) viewer.controls().disable()
     const made = new Map()
     const sceneFor = (key) => {
       if (made.has(key)) return made.get(key)
@@ -53,7 +56,7 @@ const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, auto
       state.current = {}
       viewer.destroy()
     }
-  }, [scenes, mouseViewMode])
+  }, [scenes, mouseViewMode, still])
 
   // A group's first scene opens on its exported starting view, or on `facing`. From then on the view
   // carries over from the group's last scene, turned by the difference in their headings, so a change
@@ -67,7 +70,10 @@ const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, auto
     viewer.setIdleMovement(Infinity)
     if (next !== shown) {
       const from = last[next.group]
-      if (!from) next.view.setParameters(facing?.group === next.group ? { ...next.start, yaw: wrap(facing.angle - next.heading) } : next.start)
+      if (!from) {
+        const { pitch = next.start.pitch, fov = next.start.fov } = facing ?? {}
+        next.view.setParameters(facing?.group === next.group ? { ...next.start, yaw: wrap(facing.angle - next.heading), pitch, fov } : next.start)
+      }
       else if (from !== next) {
         const { yaw, pitch, fov } = from.view.parameters()
         next.view.setParameters({ yaw: yaw + from.heading - next.heading, pitch, fov })
@@ -75,14 +81,14 @@ const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, auto
       next.scene.switchTo({ transitionDuration: 900 })
       state.current.shown = last[next.group] = next
     }
-    if (autorotate && !reduced()) {
+    if (autorotate && !still && !reduced()) {
       const spin = Marzipano.autorotate({ yawSpeed: 0.03, targetPitch: 0, targetFov: Math.PI / 2 })
       viewer.startMovement(spin)
       viewer.setIdleMovement(3000, spin)
     }
-  }, [active, scenes, autorotate, mouseViewMode, facing])
+  }, [active, scenes, autorotate, mouseViewMode, facing, still])
 
-  return <div ref={host} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
+  return <div ref={host} className={`absolute inset-0 ${still ? 'pointer-events-none' : 'cursor-grab active:cursor-grabbing'}`} />
 })
 
 export default PanoramaViewer
