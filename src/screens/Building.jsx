@@ -144,7 +144,7 @@ export default function Building() {
         <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" role="group" aria-label="Floors of homes, each opening its plan">
           <g aria-hidden="true" className="pointer-events-none">
             {BUILDING.towers.flatMap((tower) =>
-              tower.floors.map((floor) => <polygon key={`${tower.id}.${floor.n}`} data-sweep={floor.n} points={floor.points} className="fill-gold-deep/55 opacity-0" />),
+              tower.floors.map((floor) => <polygon key={`${tower.id}.${floor.n}`} data-sweep={floor.n} points={floor.points} className="fill-ivory/30 opacity-0" />),
             )}
           </g>
           {BUILDING.towers.map((tower) => (
@@ -201,14 +201,13 @@ export default function Building() {
 
       {/* taps go through the words to any floor beneath them; only the switch takes its own */}
       <div ref={words} className="pointer-events-none absolute inset-x-(--gutter) bottom-[calc(var(--chrome-bot)+1.25rem)] landscape:right-auto landscape:bottom-auto landscape:top-1/2 landscape:w-[clamp(15rem,28vw,31rem)] landscape:-translate-y-1/2">
-        <p data-in className="eyebrow text-gold-lit">Residences</p>
         <div data-in className="pointer-events-auto mt-[2vh] max-w-sm">
           <ModeSwitch tone="dark" />
         </div>
         <h2 data-in className="display mt-[3vh] text-[clamp(1.9rem,5vh,3rem)] font-light lg:text-[clamp(2.2rem,6vh,4.4rem)]">
-          Find your
+          Pick a
           <br />
-          residence
+          floor
         </h2>
         <p data-in className="label mt-[3vh] flex items-center gap-3 text-[max(0.62rem,9px)] text-gold-lit">
           <span className="h-px w-6 shrink-0 bg-gold/60" />

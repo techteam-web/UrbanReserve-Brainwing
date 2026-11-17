@@ -15,14 +15,21 @@ const TYPE = { school: 'School', hospital: 'Hospital', mall: 'Shopping', club: '
 const NOUN = { school: ['school', 'schools'], hospital: ['hospital', 'hospitals'], mall: ['mall', 'malls'], club: ['club', 'clubs'], road: ['connection', 'connections'] }
 const kindLabel = (type) => KINDS.find(([t]) => t === type)?.[1] ?? type
 
-// Phones and portrait tablets stack the page; the map then frames its subject above the sheet.
+// Phones and portrait tablets stack the page; the map then frames its subject above the sheet. A
+// phone held sideways (the way it's meant to be held) is too short for that: its controls and sheet
+// stand in a column down the left instead, and the map frames its subject in the space to the right.
 const STACKED = '(width < 64rem), (orientation: portrait)'
-const subscribe = (cb) => {
-  const q = window.matchMedia(STACKED)
+const SIDEWAYS = '(width < 64rem) and (orientation: landscape)'
+const watch = (query) => (cb) => {
+  const q = window.matchMedia(query)
   q.addEventListener('change', cb)
   return () => q.removeEventListener('change', cb)
 }
+const onStacked = watch(STACKED)
+const onSideways = watch(SIDEWAYS)
 const STACKED_INSET = { top: 0.18, bottom: 0.5 }
+const SIDEWAYS_INSET = { top: 0.12, bottom: 0.18, left: 0.46 }
+const SLATE = { '--color-forest-950': '#18222d', '--color-forest-900': '#1f2b38', '--color-forest-800': '#2a3a4a' }
 
 function ModeSwitch({ hood, onChange, className = '' }) {
   return (
@@ -40,6 +47,36 @@ function ModeSwitch({ hood, onChange, className = '' }) {
           className={`label relative z-10 rounded-full px-4 py-2.5 text-[0.62rem] transition-colors duration-500 ${hood === h ? 'text-forest-950' : 'text-ivory/70 hover:text-ivory'}`}
         >
           {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Day or night over the map (night.js): a sun and a moon, the one on show filled
+function DayNight({ night, onChange, className = '' }) {
+  const ICONS = {
+    day: 'M12 4v1.6M12 18.4V20M4 12h1.6M18.4 12H20M6.3 6.3l1.2 1.2M16.5 16.5l1.2 1.2M6.3 17.7l1.2-1.2M16.5 7.5l1.2-1.2M12 8.6a3.4 3.4 0 100 6.8 3.4 3.4 0 000-6.8z',
+    night: 'M19 14.6A7.5 7.5 0 019.4 5a7.5 7.5 0 109.6 9.6z',
+  }
+  return (
+    <div role="group" aria-label="Time of day" className={`relative grid grid-cols-2 rounded-full border border-ivory/15 bg-forest-950/40 p-1 backdrop-blur-md ${className}`}>
+      <span className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-gold transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${night ? 'translate-x-full' : ''}`} />
+      {[
+        ['day', false],
+        ['night', true],
+      ].map(([id, n]) => (
+        <button
+          key={id}
+          onClick={() => onChange(n)}
+          aria-pressed={night === n}
+          aria-label={n ? 'Night' : 'Day'}
+          title={n ? 'Night' : 'Day'}
+          className={`relative z-10 grid size-9 place-items-center rounded-full transition-colors duration-500 ${night === n ? 'text-forest-950' : 'text-ivory/70 hover:text-ivory'}`}
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d={ICONS[id]} />
+          </svg>
         </button>
       ))}
     </div>
@@ -248,7 +285,7 @@ function Detail({ stop, onStop }) {
         one private forest
       </h3>
       <p data-swap className="copy mt-[1.6vh] text-ivory/65">{OVERVIEW.welcome.body}</p>
-      <div data-swap className="mt-[2.6vh] grid grid-cols-3 gap-3">
+      <div data-swap className="mt-[2.6vh] grid grid-cols-2 gap-3">
         {OVERVIEW.welcome.stats.map((s) => (
           <Stat key={s.label} {...s} />
         ))}
@@ -336,6 +373,8 @@ export default function Location() {
   const onProgress = useCallback((progress, next) => setLoading({ progress, next }), [])
   // the desktop detail card, shown or slid away by the visitor
   const [card, setCard] = useState(true)
+  // day, or night over the map (the Day/Night switch beside the mode)
+  const [night, setNight] = useState(false)
   // The page's entrance waits while the world loads and the camera comes down through the clouds,
   // and plays once it is through. Declared before useIntro so the cover is in place when the intro
   // timeline is created.
@@ -359,7 +398,8 @@ export default function Location() {
   }, [])
   const click = (e) => e.target.closest?.('button:not(:disabled), [role="button"], a[href]') && playClick()
 
-  const stacked = useSyncExternalStore(subscribe, () => window.matchMedia(STACKED).matches)
+  const stacked = useSyncExternalStore(onStacked, () => window.matchMedia(STACKED).matches)
+  const sideways = useSyncExternalStore(onSideways, () => window.matchMedia(SIDEWAYS).matches)
   const hood = isHood(stop)
   const mode = (h) => setStop(h ? 'neighbourhood' : 'reserve')
   // the stacked layout's chips: the overview and the kinds; a kind's chip also stands for its places
@@ -368,7 +408,9 @@ export default function Location() {
   const detail = <Detail stop={stop} onStop={setStop} />
 
   return (
-    <section ref={root} onClickCapture={click} className="screen bg-forest-950 text-ivory">
+    // over the daylight map the page's dark glass is slate, not forest green, as the Rustomjee app's
+    // panels are: its forest tones are remapped for everything inside (the panels, the bar, the pins)
+    <section ref={root} onClickCapture={click} style={SLATE} className="screen bg-forest-950 text-ivory">
       {world === 'failed' ? (
         <div className="absolute inset-0">
           <img src={LOCATION.map} alt="Map of landmarks around Urban Reserve" className="h-full w-full object-cover opacity-60" />
@@ -376,7 +418,7 @@ export default function Location() {
         </div>
       ) : (
         <Suspense fallback={null}>
-          <World stop={stop} inset={stacked ? STACKED_INSET : null} hotspots={false} onStop={setStop} onState={setWorld} onProgress={onProgress} />
+          <World stop={stop} inset={sideways ? SIDEWAYS_INSET : stacked ? STACKED_INSET : null} night={night} hotspots={false} onStop={setStop} onState={setWorld} onProgress={onProgress} />
         </Suspense>
       )}
 
@@ -384,11 +426,11 @@ export default function Location() {
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${through ? 'opacity-100' : 'opacity-0'}`}>
         {/* narrower over the neighbourhood, where the rail only holds its title */}
         <div
-          className={`absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgb(9_27_21/0.86),rgb(9_27_21/0.56)_45%,transparent)] transition-[width,opacity] duration-700 max-lg:hidden ${hood ? 'w-[32%] opacity-75' : 'w-[46%]'}`}
+          className={`absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgb(24_34_45/0.62),rgb(24_34_45/0.3)_45%,transparent)] transition-[width,opacity] duration-700 max-lg:hidden ${hood ? 'w-[32%] opacity-75' : 'w-[46%]'}`}
         />
-        <div className={`absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(9_27_21/0.36),transparent)] transition-opacity duration-700 max-lg:hidden ${card ? '' : 'opacity-0'}`} />
-        <div className="absolute inset-x-0 top-0 h-[20vh] bg-linear-to-b from-forest-950/60 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-[18vh] bg-linear-to-t from-forest-950/65 to-transparent" />
+        <div className={`absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgb(24_34_45/0.22),transparent)] transition-opacity duration-700 max-lg:hidden ${card ? '' : 'opacity-0'}`} />
+        <div className="absolute inset-x-0 top-0 h-[16vh] bg-linear-to-b from-forest-950/35 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-[18vh] bg-linear-to-t from-forest-950/45 to-transparent" />
       </div>
 
       <Preloader show={world === 'loading'} progress={loading.progress} next={loading.next} />
@@ -397,15 +439,15 @@ export default function Location() {
       <div className="safe pointer-events-none relative hidden h-full grid-cols-[minmax(17rem,24rem)_1fr_minmax(21rem,27rem)] gap-[3vw] lg:grid">
         <div className="flex min-h-0 flex-col justify-center">
           <div className="pointer-events-auto absolute bottom-25 max-w-[18vw]">
-            <p data-in className="eyebrow text-gold-lit">Location</p>
-            <h2 data-in className="display mt-2 text-[clamp(2rem,2vh,3.8rem)] font-normal">
+            <h2 data-in className="display text-[clamp(2rem,2vh,3.8rem)] font-normal">
               {LOCATION.heading}
             </h2>
             <p data-in className={`copy grid text-ivory/70 transition-[grid-template-rows,opacity,margin] duration-700 ${hood ? 'mt-0 grid-rows-[0fr] opacity-0' : 'mt-[2vh] grid-rows-[1fr]'}`}>
               <span className="overflow-hidden">Two towers in a private forest, minutes from schools, hospitals, malls and the Western Express Highway.</span>
             </p>
-            <div data-in className="mt-[3.2vh]">
+            <div data-in className="mt-[3.2vh] flex w-max items-center gap-2">
               <ModeSwitch hood={hood} onChange={mode} />
+              <DayNight night={night} onChange={setNight} className="shrink-0" />
             </div>
           </div>
         </div>
@@ -444,16 +486,21 @@ export default function Location() {
 
       <PlacesBar show={hood && through} stop={stop} onStop={setStop} />
 
-      {/* phones and portrait tablets: title on top, a sheet at the bottom */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-(--gutter) pb-(--chrome-bot) pt-(--chrome-top) lg:hidden">
-        <div data-in className="pointer-events-auto">
-          <p className="eyebrow text-gold-lit">Location</p>
-          <h2 className="display mt-2 text-[clamp(1.6rem,7vw,2.6rem)] font-normal">{LOCATION.heading}</h2>
+      {/* phones and portrait tablets: title on top, a sheet at the bottom; a phone held sideways: the
+          switches, the chips and the sheet in a column down the left (the sheet carries the title) */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-(--gutter) pb-(--chrome-bot) pt-(--chrome-top) lg:hidden landscape:right-auto landscape:w-[46%] landscape:justify-start landscape:pr-0 landscape:pb-[calc(var(--chrome-bot)+0.5rem)]">
+        {/* a shade down from the top, so the title reads over the map's own names */}
+        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-[calc(var(--chrome-top)+6rem)] bg-linear-to-b from-forest-950/80 via-forest-950/45 to-transparent landscape:hidden" />
+        <div data-in className="pointer-events-auto relative landscape:hidden">
+          <h2 className="display text-[clamp(1.6rem,7vw,2.6rem)] font-normal [text-shadow:0_1px_12px_rgb(13_35_29/0.7)]">{LOCATION.heading}</h2>
         </div>
-        <div data-in className="pointer-events-auto">
-          <ModeSwitch hood={hood} onChange={mode} className="mx-auto max-w-sm" />
+        <div data-in className="pointer-events-auto relative landscape:flex landscape:min-h-0 landscape:flex-1 landscape:flex-col">
+          <div className="mx-auto flex max-w-sm items-center gap-2 landscape:mx-0 landscape:max-w-none">
+            <ModeSwitch hood={hood} onChange={mode} className="flex-1" />
+            <DayNight night={night} onChange={setNight} className="shrink-0" />
+          </div>
           {chips.length > 0 && (
-            <div className="-mx-(--gutter) mt-3 flex gap-2 overflow-x-auto px-(--gutter) pb-1 [scrollbar-width:none]">
+            <div className="-mx-(--gutter) mt-3 flex shrink-0 gap-2 overflow-x-auto px-(--gutter) pb-1 [scrollbar-width:none] landscape:mx-0 landscape:mt-2 landscape:px-0">
               {chips.map((h) => (
                 <button
                   key={h.id}
@@ -466,7 +513,7 @@ export default function Location() {
               ))}
             </div>
           )}
-          <div className="mt-3 max-h-[42vh] overflow-y-auto border border-ivory/10 bg-forest-950/80 p-5 backdrop-blur-xl [scrollbar-width:none]">
+          <div className="mt-3 max-h-[42vh] overflow-y-auto border border-ivory/10 bg-forest-950/90 p-5 landscape:mt-2 landscape:max-h-none landscape:min-h-0 landscape:flex-1 landscape:p-4 backdrop-blur-xl [scrollbar-width:none]">
             <Swap id={stop}>{detail}</Swap>
           </div>
         </div>

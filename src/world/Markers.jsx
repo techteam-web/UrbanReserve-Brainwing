@@ -14,11 +14,13 @@ export function Pin({ place, active, dim, onClick }) {
   return (
     <button
       onClick={onClick}
+      data-lit={active}
       className={`group pointer-events-auto relative flex -translate-x-1/2 -translate-y-full flex-col items-center transition-opacity duration-700 ${dim ? 'opacity-40 hover:opacity-100' : ''}`}
       aria-label={`${place.name}, ${place.mins} minutes away`}
     >
+      {/* with no room for it (World marks the anchor data-compact), the pill gives way to the dot */}
       <span
-        className={`flex items-center gap-2.5 rounded-full border py-1 pl-1 pr-3.5 shadow-[0_10px_30px_-10px_rgb(0_0_0/0.6)] backdrop-blur-md transition-colors duration-500 ${
+        className={`flex items-center gap-2.5 rounded-full border py-1 pl-1 pr-3.5 shadow-[0_10px_30px_-10px_rgb(0_0_0/0.6)] backdrop-blur-md transition-[opacity,scale,border-color,background-color] duration-500 in-data-compact:pointer-events-none in-data-compact:scale-75 in-data-compact:opacity-0 ${
           active ? 'border-gold bg-forest-950/85' : 'border-ivory/15 bg-forest-950/60 group-hover:border-gold/60'
         }`}
       >
@@ -34,7 +36,8 @@ export function Pin({ place, active, dim, onClick }) {
           <span className="overflow-hidden">{place.name}</span>
         </span>
       </span>
-      <span className={`w-px bg-linear-to-b from-gold/80 to-gold/0 transition-[height] duration-700 ${active ? 'h-16' : 'h-9'}`} />
+      {/* World lengthens the stem (--lift) when another place's pill is in the way */}
+      <span className="w-px bg-linear-to-b from-gold/80 to-gold/0 transition-[height] duration-700" style={{ height: `calc(${active ? '4rem' : '2.25rem'} + var(--lift, 0px))` }} />
       <span className="size-1.5 rounded-full bg-gold shadow-[0_0_10px_3px_rgb(230_201_131/0.7)]" />
     </button>
   )
@@ -76,17 +79,18 @@ export function Traveller() {
   )
 }
 
+// The reserve's own sign over the map, as the Rustomjee app marks its tower: a white card with the
+// logo and the name, on a beam of light down to the plot
 export function Badge() {
   return (
     <div className="flex -translate-x-1/2 -translate-y-full flex-col items-center">
-      <span className="relative grid size-14 place-items-center rounded-full border border-gold/60 bg-forest-900/90 shadow-[0_0_40px_rgb(201_163_90/0.35)] backdrop-blur">
-        <span className="absolute -inset-2 animate-ping rounded-full border border-gold/40 [animation-duration:3s]" />
-        <span className="w-7 text-gold">
+      <span className="flex flex-col items-center rounded-[0.35rem] bg-white/95 px-5 pb-2.5 pt-3 text-forest-900 shadow-[0_18px_40px_-14px_rgb(20_32_44/0.55)]">
+        <span className="w-6 text-ember">
           <Mark />
         </span>
+        <span className="font-display mt-1.5 whitespace-nowrap text-[1.15rem] uppercase leading-none tracking-[0.12em]">Urban Reserve</span>
       </span>
-      <span className="label mt-2 whitespace-nowrap text-[0.6rem] text-gold-lit">Urban Reserve</span>
-      <span className="mt-1 h-10 w-px bg-linear-to-b from-gold/70 to-transparent" />
+      <span className="h-14 w-3 bg-linear-to-b from-white/90 via-white/45 to-white/0 blur-[1px]" />
     </div>
   )
 }

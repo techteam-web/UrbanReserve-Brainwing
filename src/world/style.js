@@ -46,37 +46,55 @@ export function prefetch([lng, lat]) {
   }
 }
 
+// Daylight in the Rustomjee app's manner: pale land with soft natural greens, turquoise water on
+// sandy shores, white blocks and dark slate roads under a pale blue haze. The logo's orange is kept
+// for the reserve's own edge and the drives to each place.
 const C = {
-  ground: '#16372a',
-  wood: '#18412a',
-  park: '#1c4933',
-  wetland: '#143a31',
-  water: '#16464f',
-  waterLine: '#1d5458',
-  minor: '#29594a',
-  street: '#376e5a',
-  major: '#4c8a73',
-  gold: '#c9a35a',
-  goldDeep: '#ad8743',
-  plot: '#3b7551',
+  ground: '#dcdcd2',
+  wood: '#b3c9a6',
+  park: '#c1d4b3',
+  wetland: '#b9cfc4',
+  water: '#6ccbd2',
+  sand: '#e2c89c',
+  minor: '#c4cad0',
+  street: '#8e9aa7',
+  major: '#4d5d70',
+  trunk: '#324357',
+  gold: '#e8742f',
+  plot: '#d6cfb9',
   track: '#c97a52',
-  drive: '#82978a',
-  pond: '#2f7c86',
+  drive: '#ffffff',
+  pond: '#55c0cc',
   route: '#e3742c',
-  label: 'rgba(250, 247, 242, 0.74)',
-  halo: '#0d231d',
+  label: '#2c3a4a',
+  halo: 'rgba(255, 255, 255, 0.9)',
 }
 
 const z = (...stops) => ['interpolate', ['exponential', 1.6], ['zoom'], ...stops]
 const cls = (...names) => ['match', ['get', 'class'], names, true, false]
 
+/*
+ * The roads' looks by kind: colour, width (zoom, px stops; exponential 1.6), dash, the zoom they
+ * appear from. Shared with the scene, which lays the bridges over the water in the same paint
+ * (bridges.js).
+ */
+export const ROAD_LOOKS = {
+  path: { color: C.minor, width: [14, 0.3, 18, 1.6], dash: [2, 2], min: 14 },
+  minor: { color: C.minor, width: [12, 0.4, 16, 2.4, 19, 9], min: 12 },
+  street: { color: C.street, width: [10, 0.6, 15, 3.4, 19, 16] },
+  primary: { color: C.major, width: [9, 0.8, 15, 4.6, 19, 22] },
+  trunk: { color: C.trunk, width: [8, 1.2, 15, 7, 19, 30] },
+  rail: { color: '#7b8794', width: [10, 0.6, 16, 2.2], dash: [3, 2] },
+}
+
 function roads() {
+  const L = ROAD_LOOKS
   const kinds = [
-    { id: 'path', filter: cls('path', 'track'), color: C.minor, width: z(14, 0.3, 18, 1.6), dash: [2, 2], min: 14 },
-    { id: 'minor', filter: cls('minor', 'service'), color: C.minor, width: z(12, 0.4, 16, 2.4, 19, 9), min: 12 },
-    { id: 'street', filter: cls('tertiary', 'secondary'), color: C.street, width: z(10, 0.6, 15, 3.4, 19, 16) },
-    { id: 'primary', filter: cls('primary'), color: C.major, width: z(9, 0.8, 15, 4.6, 19, 22) },
-    { id: 'trunk', filter: cls('trunk', 'motorway'), color: C.goldDeep, width: z(8, 1, 15, 6, 19, 28), glow: true },
+    { id: 'path', filter: cls('path', 'track'), color: L.path.color, width: z(...L.path.width), dash: L.path.dash, min: L.path.min },
+    { id: 'minor', filter: cls('minor', 'service'), color: L.minor.color, width: z(...L.minor.width), min: L.minor.min },
+    { id: 'street', filter: cls('tertiary', 'secondary'), color: L.street.color, width: z(...L.street.width) },
+    { id: 'primary', filter: cls('primary'), color: L.primary.color, width: z(...L.primary.width) },
+    { id: 'trunk', filter: cls('trunk', 'motorway'), color: L.trunk.color, width: z(...L.trunk.width) },
   ]
   return kinds.flatMap((k) => {
     const base = {
@@ -88,7 +106,6 @@ function roads() {
       layout: { 'line-cap': 'round', 'line-join': 'round' },
     }
     const layers = [{ ...base, id: `road-${k.id}`, paint: { 'line-color': k.color, 'line-width': k.width, ...(k.dash && { 'line-dasharray': k.dash }) } }]
-    if (k.glow) layers.unshift({ ...base, id: `road-${k.id}-glow`, paint: { 'line-color': C.gold, 'line-width': z(8, 4, 15, 18, 19, 60), 'line-blur': z(8, 4, 15, 14, 19, 40), 'line-opacity': 0.18 } })
     return layers
   })
 }
@@ -136,16 +153,17 @@ export function mapStyle() {
       site: { type: 'geojson', data: siteGeoJSON() },
       routes: route.source,
     },
+    // the Rustomjee app's pale blue sky and haze (#7fa4c9)
     sky: {
-      'sky-color': '#1d5568',
-      'horizon-color': '#f4bd86',
-      'fog-color': '#b48a63',
-      'sky-horizon-blend': 0.75,
-      'horizon-fog-blend': 0.85,
-      'fog-ground-blend': 0.6,
+      'sky-color': '#7fa4c9',
+      'horizon-color': '#c6d8e6',
+      'fog-color': '#b4c9dc',
+      'sky-horizon-blend': 0.7,
+      'horizon-fog-blend': 0.75,
+      'fog-ground-blend': 0.55,
       'atmosphere-blend': 0,
     },
-    light: { anchor: 'map', position: [1.4, SUN_AZ, 90 - SUN_EL], color: '#ffdcb0', intensity: 0.48 },
+    light: { anchor: 'map', position: [1.4, SUN_AZ, 90 - SUN_EL], color: '#ffffff', intensity: 0.42 },
     terrain: { source: 'dem', exaggeration: 1.35 },
     layers: [
       { id: 'ground', type: 'background', paint: { 'background-color': C.ground } },
@@ -163,16 +181,17 @@ export function mapStyle() {
         type: 'hillshade',
         source: 'relief',
         paint: {
-          'hillshade-shadow-color': '#0a1f17',
-          'hillshade-highlight-color': '#79a88b',
-          'hillshade-accent-color': '#112d23',
-          'hillshade-exaggeration': 0.42,
+          'hillshade-shadow-color': '#7d8a86',
+          'hillshade-highlight-color': '#ffffff',
+          'hillshade-accent-color': '#a7b0a8',
+          'hillshade-exaggeration': 0.35,
           'hillshade-illumination-direction': SUN_AZ,
         },
       },
       { id: 'water', type: 'fill', source: 'vector', 'source-layer': 'water', paint: { 'fill-color': C.water } },
-      { id: 'water-edge', type: 'line', source: 'vector', 'source-layer': 'water', paint: { 'line-color': C.waterLine, 'line-width': z(10, 0.5, 16, 2) } },
-      { id: 'waterway', type: 'line', source: 'vector', 'source-layer': 'waterway', paint: { 'line-color': C.waterLine, 'line-width': z(10, 0.6, 16, 3) } },
+      // the shore as a band of sand: the water (drawn in 3D over the map) covers its inner half
+      { id: 'water-edge', type: 'line', source: 'vector', 'source-layer': 'water', paint: { 'line-color': C.sand, 'line-width': z(10, 2, 13, 6, 16, 22), 'line-blur': z(10, 1, 16, 6) } },
+      { id: 'waterway', type: 'line', source: 'vector', 'source-layer': 'waterway', paint: { 'line-color': C.water, 'line-width': z(10, 0.8, 16, 4) } },
       ...roads(),
       {
         id: 'rail',
@@ -180,10 +199,10 @@ export function mapStyle() {
         source: 'vector',
         'source-layer': 'transportation',
         filter: cls('rail', 'transit'),
-        paint: { 'line-color': '#5f8d7d', 'line-width': z(10, 0.6, 16, 2.2), 'line-dasharray': [3, 2] },
+        paint: { 'line-color': ROAD_LOOKS.rail.color, 'line-width': z(...ROAD_LOOKS.rail.width), 'line-dasharray': ROAD_LOOKS.rail.dash },
       },
       { id: 'plot', type: 'fill', source: 'site', filter: ['==', ['get', 'kind'], 'plot'], paint: { 'fill-color': C.plot } },
-      { id: 'court', type: 'fill', source: 'site', filter: ['==', ['get', 'kind'], 'court'], paint: { 'fill-color': '#5a7064' } },
+      { id: 'court', type: 'fill', source: 'site', filter: ['==', ['get', 'kind'], 'court'], paint: { 'fill-color': '#cfc7b2' } },
       { id: 'pond', type: 'fill', source: 'site', filter: ['==', ['get', 'kind'], 'pond'], paint: { 'fill-color': C.pond } },
       {
         id: 'drive',
@@ -218,10 +237,10 @@ export function mapStyle() {
         minzoom: 13,
         filter: ['>', ['distance', plot], 8],
         paint: {
-          'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 8], 0, '#275946', 30, '#3a735f', 90, '#508a73'],
+          'fill-extrusion-color': '#f3f3f0',
           'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
           'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-          'fill-extrusion-opacity': z(13, 0, 14, 0.94),
+          'fill-extrusion-opacity': z(13, 0, 14, 0.97),
           'fill-extrusion-vertical-gradient': true,
         },
       },
@@ -231,7 +250,9 @@ export function mapStyle() {
         source: 'vector',
         'source-layer': 'transportation_name',
         minzoom: 14,
-        filter: cls('trunk', 'motorway', 'primary'),
+        // none within 800 m of the reserve: the map draws its labels over the 3D layer, so a road
+        // lying behind the towers from the close views had its name written across them
+        filter: ['all', cls('trunk', 'motorway', 'primary'), ['>', ['distance', plot], 800]],
         layout: {
           'symbol-placement': 'line',
           'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name:latin'], ['get', 'name']],
@@ -240,14 +261,16 @@ export function mapStyle() {
           'text-letter-spacing': 0.18,
           'text-transform': 'uppercase',
         },
-        paint: { 'text-color': 'rgba(230, 201, 131, 0.78)', 'text-halo-color': C.halo, 'text-halo-width': 1.2 },
+        paint: { 'text-color': '#3d4c5c', 'text-halo-color': C.halo, 'text-halo-width': 1.2 },
       },
       {
         id: 'place-label',
         type: 'symbol',
         source: 'vector',
         'source-layer': 'place',
-        filter: ['match', ['get', 'class'], ['suburb', 'neighbourhood', 'quarter', 'town', 'village', 'city'], true, false],
+        // none on the reserve itself: its own card names the spot, and the locality's label (Mira) sits
+        // right beside the pin, where it was drawn across the towers
+        filter: ['all', ['match', ['get', 'class'], ['suburb', 'neighbourhood', 'quarter', 'town', 'village', 'city'], true, false], ['>', ['distance', plot], 400]],
         layout: {
           'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name:latin'], ['get', 'name']],
           'text-font': ['Noto Sans Regular'],

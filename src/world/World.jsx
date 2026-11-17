@@ -9,6 +9,7 @@ import { createClouds } from './clouds'
 import { createBirds } from './birds'
 import { createDirector, heightScale } from './camera'
 import { SUN } from './light'
+import { setMapNight } from './night'
 import { toLocal } from './geo'
 import { HOTSPOTS, PLACES, VIEWS, enu, isHood, kindOf, kindView, litPlaces, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
 import { SOLIDS, TOWER_H } from './site'
@@ -32,13 +33,18 @@ const ENTRANCE = { height: 7000, pitch: 45, turn: 90, duration: 8, deck: { half:
  * and clicks on the scene call `onStop`. Places show their road route from the reserve; a kind
  * stop ('kind-<type>') lights every place of that kind, and their routes, together.
  * `hotspots` false leaves out the numbered points on the towers that lead into each home.
- * `inset` ({ top, bottom } as fractions of the height) keeps the subject clear of UI covering the
- * map. Nothing is shown until the whole scene is in: `onProgress(fraction, next)` reports loading
+ * `inset` ({ top, bottom } as fractions of the height, `left` of the width) keeps the subject clear
+ * of UI covering the map. Nothing is shown until the whole scene is in: `onProgress(fraction, next)` reports loading
  * (`next` names what is still coming). `onState` reports 'clouds' when everything has loaded and
  * the descent through the clouds starts, 'ready' once the camera is through them (the page's own
  * entrance can play), or 'failed' if WebGL is unavailable.
  */
-export default function World({ stop, inset, hotspots = true, onStop, onState, onProgress }) {
+// on the map, roughly (px): a place's pill (its width, height and stem; how far a lift raises it,
+// the gap kept round it) and the reserve's card (its size, and the beam it stands on)
+const PILL = { w: 104, h: 36, stem: 42, step: 40, gap: 4 }
+const CARD = { w: 224, h: 72, beam: 56 }
+
+export default function World({ stop, inset, night = false, hotspots = true, onStop, onState, onProgress }) {
   const host = useRef(null)
   const overlay = useRef(null)
   const veil = useRef(null)
@@ -46,6 +52,7 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
   const anchors = useRef(new Map())
   const live = useRef(null)
   const stopRef = useRef(stop)
+  const nightRef = useRef(night)
   // labels stay out of sight until the scene is on show
   const [shown, setShown] = useState(false)
   const report = useRef(onState)
@@ -106,6 +113,8 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
       }
       let gone = false
       let intro = null
+      // how far into the night the world is (0 day, 1 night)
+      const dusk = { k: 0 }
 
       const cloudCanvas = document.createElement('canvas')
       cloudCanvas.className = 'pointer-events-none absolute inset-0 h-full w-full'
@@ -122,8 +131,8 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
       let size = [0, 0]
       const measure = () => {
         size = [overlay.current.clientWidth, overlay.current.clientHeight]
-        const { top = 0, bottom = 0 } = insetRef.current ?? {}
-        map.setPadding({ top: size[1] * top, bottom: size[1] * bottom, left: 0, right: 0 })
+        const { top = 0, bottom = 0, left = 0 } = insetRef.current ?? {}
+        map.setPadding({ top: size[1] * top, bottom: size[1] * bottom, left: size[0] * left, right: 0 })
       }
       measure()
       map.on('resize', measure)
@@ -156,6 +165,22 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
         }
         const e = pose.clip.elements
         const [W, H] = size
+        // What the places' pills must keep clear of this frame, as screen boxes: the reserve's card
+        // (over the neighbourhood), then each pill as it is placed. A pin whose pill would land on
+        // one of them (two places a street apart, or one right beside the reserve) has its stem
+        // drawn longer, its pill standing clear above; if that is not enough, only its dot shows.
+        const taken = []
+        const places = []
+        const badge = anchors.current.get('badge')
+        if (badge && isHood(stopRef.current)) {
+          const [x, y, z] = badge
+          const cw = e[3] * x + e[7] * y + e[11] * z + e[15]
+          if (cw > 0.01) {
+            const bx = (((e[0] * x + e[4] * y + e[8] * z + e[12]) / cw) * 0.5 + 0.5) * W
+            const by = (0.5 - ((e[1] * x + e[5] * y + e[9] * z + e[13]) / cw) * 0.5) * H
+            taken.push({ card: true, l: bx - CARD.w / 2, r: bx + CARD.w / 2, t: by - CARD.beam - CARD.h, b: by - CARD.beam })
+          }
+        }
         for (const [id, el] of els.current) {
           const p = anchors.current.get(id)
           // nothing to show here (a route being swapped for another): never leave it where it was
@@ -174,6 +199,25 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
           el.style.visibility = sx < -0.2 || sx > 1.2 || sy < -0.2 || sy > 1.2 ? 'hidden' : 'visible'
           el.style.transform = `translate3d(${(sx * W).toFixed(1)}px, ${(sy * H).toFixed(1)}px, 0)`
           if (alpha !== undefined) el.style.opacity = alpha.toFixed(3)
+          if (id.startsWith('place-') && el.style.visibility === 'visible') places.push({ el, px: sx * W, py: sy * H, lit: Boolean(el.querySelector('[data-lit="true"]')) })
+        }
+        // the lit places first, then the rest nearest first (PLACES runs from 5 min to 15)
+        places.sort((a, b) => b.lit - a.lit)
+        for (const { el, px, py, lit } of places) {
+          const box = (lift) => ({ l: px - PILL.w / 2, r: px + PILL.w / 2, t: py - PILL.stem - lift - PILL.h, b: py - PILL.stem - lift })
+          const clear = (lift) => !taken.some((o) => box(lift).l < o.r + PILL.gap && box(lift).r > o.l - PILL.gap && box(lift).t < o.b + PILL.gap && box(lift).b > o.t - PILL.gap)
+          // a single short lift at most (a pill far from its place reads as another's); a pill
+          // that still has no room keeps only its stem and dot, unless it is one of those lit
+          const lift = [0, PILL.step].find(clear)
+          const shown = lift !== undefined || lit
+          if (shown) taken.push(box(lift ?? 0))
+          const key = shown ? String(lift ?? 0) : 'dot'
+          if (el.dataset.lift !== key) {
+            el.dataset.lift = key
+            // (a dot alone stands on a short stem)
+            el.style.setProperty('--lift', shown ? `${lift ?? 0}px` : '-1.5rem')
+            el.toggleAttribute('data-compact', !shown)
+          }
         }
         birds?.draw(pose)
         overlay.current?.style.setProperty('--fog', clouds ? clouds.fog(pose.eye).toFixed(3) : 0)
@@ -202,18 +246,26 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
       }
       placeAnchors()
 
-      function fit(bounds, bearing, pitch) {
+      // `closer` brings a wide screen's camera in (by zoom levels); a narrower one keeps the plain fit,
+      // or the places at its edges run under the card
+      function fit(bounds, bearing, pitch, closer = 0) {
         const { width, height } = map.getContainer().getBoundingClientRect()
-        // leave room for the rail and the card either side (stacked layouts are padded already)
-        const side = width * (insetRef.current ? 0.06 : 0.3)
-        const cam = map.cameraForBounds(bounds, { bearing, padding: { top: height * 0.18, bottom: height * 0.14, left: side, right: side } })
-        const c = cam?.center
+        const stacked = Boolean(insetRef.current)
+        // leave room for the rail and the card either side. A stacked layout's map is padded for its
+        // title and sheet already (the fit adds to that), so it only keeps a margin: the full margins
+        // on top of it left no height at all on a phone, and MapLibre answered with a view of the globe
+        const side = width * (stacked ? 0.06 : 0.3)
+        const padding = stacked ? { top: height * 0.03, bottom: height * 0.03, left: side, right: side } : { top: height * 0.18, bottom: height * 0.14, left: side, right: side }
+        const cam = map.cameraForBounds(bounds, { bearing, padding })
+        const ok = cam && Number.isFinite(cam.zoom) && cam.zoom > 8
+        const c = ok ? cam.center : null
         // a tilted camera sees more ground than the flat fit assumes; ease back a little
-        return { center: c ? [c.lng ?? c[0], c.lat ?? c[1]] : SITE.at, zoom: (cam?.zoom ?? 14) - pitch / 140, pitch, bearing, fitted: true }
+        return { center: c ? [c.lng ?? c[0], c.lat ?? c[1]] : SITE.at, zoom: (ok ? cam.zoom : 13) - pitch / 140 + (width >= 1280 ? closer : 0), pitch, bearing, fitted: true }
       }
 
       function viewFor(id) {
-        if (id === 'neighbourhood') return { ...fit(neighbourhoodBounds(), SITE.heading - 14, 46), lift: 0, orbit: 0 }
+        // the overview keeps circling, as the Rustomjee app's opening view does
+        if (id === 'neighbourhood') return { ...fit(neighbourhoodBounds(), SITE.heading - 14, 46, 0.3), lift: 0, orbit: 3.5 }
         const kind = kindOf(id)
         if (kind) {
           const v = kindView(kind)
@@ -234,8 +286,8 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
        */
       function framed(v) {
         const { clientWidth: W, clientHeight: H } = map.getContainer()
-        const { top = 0, bottom = 0 } = insetRef.current ?? {}
-        let zoom = v.fitted ? v.zoom : v.zoom + Math.log2(Math.min((H * (1 - top - bottom)) / 1080, W / 900))
+        const { top = 0, bottom = 0, left = 0 } = insetRef.current ?? {}
+        let zoom = v.fitted ? v.zoom : v.zoom + Math.log2(Math.min((H * (1 - top - bottom)) / 1080, (W * (1 - left)) / 900))
         const k = heightScale(map, v.center[1], v.pitch)
         const altAt = (z) => k / 2 ** z + v.lift // above the ground at the stop
         const zoomAt = (alt) => Math.log2(k / Math.max(1, alt - v.lift))
@@ -283,7 +335,9 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
       }
 
       // the decks thin out over the neighbourhood, so its places show between them
-      const covers = (hood) => ({ a: hood ? 0.42 : 0.5, b: hood ? 0.5 : 0.56 })
+      // One deck only, the high one the way in comes down through; the low deck among the towers is
+      // gone (a: 0). At rest the air is clear, as in the Rustomjee app, a few clouds drifting over.
+      const covers = (hood) => ({ a: 0, b: hood ? 0.3 : 0.34 })
 
       // Flies to a stop, or with `entrance` ({ duration, dive }) comes down to it through the clouds.
       function goTo(id, entrance) {
@@ -321,7 +375,32 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
         // small screens start with the credits folded into their (i) button
         if (insetRef.current) map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
         const director = createDirector(map)
-        live.current = { map, director, goTo, measure, introduced: false }
+        // Night falls, or the day comes back, over 1.6 s: the map's colours (see night.js), the 3D
+        // scene's light and the clouds' haze together.
+        const HAZE = [[0.71, 0.79, 0.86], [0.09, 0.13, 0.17]]
+        // the map's colours follow in twelve steps (see night.js)
+        let step = -1
+        const setNight = (on) => {
+          gsap.to(dusk, {
+            k: on ? 1 : 0,
+            duration: reduced() ? 0.01 : 1.6,
+            ease: 'sine.inOut',
+            overwrite: true,
+            onUpdate: () => {
+              reserve.setNight(dusk.k)
+              const s = Math.round(dusk.k * 12)
+              if (s !== step) {
+                step = s
+                setMapNight(map, s / 12)
+              }
+              if (!clouds) return
+              clouds.params.haze = HAZE[0].map((d, i) => d + (HAZE[1][i] - d) * dusk.k)
+              clouds.params.night = dusk.k
+            },
+          })
+        }
+        live.current = { map, director, goTo, measure, setNight, introduced: false }
+        if (nightRef.current) setNight(true)
         const wait = (ms) => new Promise((r) => setTimeout(r, ms))
         // Waits are capped by a stall, not a clock: a slow connection keeps loading as long as data
         // is still arriving, and only a dead one (nothing for STALL ms) lets the page start without it.
@@ -389,7 +468,9 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
          */
         report.current?.('clouds')
         const through = () => {
-          if (clouds) gsap.set(deck, { half: rest.half, cover: covers(isHood(stopRef.current)).b })
+          // the deck eases to its resting shape: it thins and draws up away from the camera over a few
+          // seconds (set at once, it vanished in a frame just as the page came in)
+          if (clouds) gsap.to(deck, { half: rest.half, cover: covers(isHood(stopRef.current)).b, duration: reduced() ? 0.01 : 5, ease: 'sine.inOut', overwrite: true })
           director.lean(true)
           report.current?.('ready')
         }
@@ -423,6 +504,7 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
         gone = true
         intro?.kill()
         route.tween?.kill()
+        gsap.killTweensOf(dusk)
         if (clouds) gsap.killTweensOf([clouds.params, clouds.params.a, clouds.params.b])
         live.current?.director.dispose()
         live.current = null
@@ -444,6 +526,12 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
     live.current?.measure()
   }, [inset])
 
+  useEffect(() => {
+    if (nightRef.current === night) return
+    nightRef.current = night
+    live.current?.setNight(night)
+  }, [night])
+
   const hood = isHood(stop)
   const active = placeIndex(stop)
   // the places lit up: one, or every one of a kind
@@ -457,15 +545,6 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
       {/* cloud-coloured until the first frame of real clouds is drawn */}
       <div ref={veil} className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,#f1e9de,#d8d3c9_55%,#aeb3ab)] transition-opacity duration-1000" />
       <div ref={overlay} inert={!shown} className={`pointer-events-none absolute inset-0 overflow-hidden transition-opacity duration-1000 ${shown ? 'opacity-100' : 'opacity-0'}`}>
-        <Anchor id="route-label" register={register} show={Boolean(drive?.route)}>
-          {drive?.route && <RouteLabel mins={drive.mins} km={drive.route.km} />}
-        </Anchor>
-        <Anchor id="traveller" register={register} show={Boolean(drive?.route)}>
-          <Traveller />
-        </Anchor>
-        <Anchor id="badge" register={register} show={hood}>
-          <Badge />
-        </Anchor>
         {hotspots && HOTSPOTS.map((h) => (
           <Anchor key={h.id} id={`hot-${h.id}`} register={register} show={!hood && stop !== h.id}>
             <Hotspot index={String(LABELS[h.id][0]).padStart(2, '0')} label={LABELS[h.id][1]} left={h.tower === 0} onClick={() => onStop(h.id)} />
@@ -476,6 +555,16 @@ export default function World({ stop, inset, hotspots = true, onStop, onState, o
             <Pin place={p} active={lit.includes(i)} dim={lit.length > 0 && !lit.includes(i)} onClick={() => onStop(`place-${i}`)} />
           </Anchor>
         ))}
+        {/* drawn over the pins: the nearest places stand right around the reserve */}
+        <Anchor id="badge" register={register} show={hood}>
+          <Badge />
+        </Anchor>
+        <Anchor id="route-label" register={register} show={Boolean(drive?.route)}>
+          {drive?.route && <RouteLabel mins={drive.mins} km={drive.route.km} />}
+        </Anchor>
+        <Anchor id="traveller" register={register} show={Boolean(drive?.route)}>
+          <Traveller />
+        </Anchor>
       </div>
     </div>
   )

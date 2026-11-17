@@ -15,7 +15,8 @@ export const BRAND = {
 
 // The pages, in the dock's order after Home; `icon` names a path in components/iconPaths.js
 export const SECTIONS = [
-  { id: 'overview', label: 'Overview', icon: 'overview' },
+  // the overview, called Features in the dock (the team lead, Nov 2026); its address stays /overview
+  { id: 'overview', label: 'Features', icon: 'overview' },
   { id: 'residences', label: 'Residences', icon: 'plan' },
   { id: 'amenities', label: 'Amenities', icon: 'pool' },
   { id: 'views', label: 'Views', icon: 'turn' },
@@ -36,8 +37,19 @@ export const INTRO = {
 
 // Home's picture is the towers by day, the intro film's last shot (the Residences page starts from it too)
 export const LANDING = {
-  eyebrow: 'A forest sanctuary in the city',
   image: img('building-day'),
+  size: [4800, 2700],
+  // the open sky in the picture, as fractions of it, where the name settles after its entrance clear
+  // of the trees and the towers. The top right, right of the towers, comes first wherever the name
+  // keeps half its size there; elsewhere it takes the patch that keeps it largest: between the big
+  // tree on the left and the towers, or the strip by the towers. `v` is where in the patch it sits,
+  // from its top (0) to its foot (1).
+  sky: [
+    { x0: 0.775, y0: 0.03, x1: 1, y1: 0.6, v: 0.2, first: 0.5 },
+    { x0: 0.34, y0: 0.16, x1: 0.555, y1: 0.43, v: 0.5 },
+    // the strip just left of the towers, under the tree's top leaves (the sky left on a tablet held upright)
+    { x0: 0.45, y0: 0.18, x1: 0.565, y1: 0.6, v: 0.3 },
+  ],
 }
 
 export const OVERVIEW = {
@@ -52,25 +64,73 @@ export const OVERVIEW = {
     body: 'Welcome to an unparalleled forest sanctuary where elegant design, immersive landscapes, and the restorative power of nature redefine the future of urban living.',
     image: img('forest'),
     stats: [
+      { value: '40', label: 'Storeys' },
+      { value: '2', label: 'Towers' },
       { value: '40+', label: 'Amenities' },
       { value: '4', label: 'Level parking' },
-      { value: '6', label: 'Lifts per tower' },
     ],
   },
+  // the architect's message, in his words (sent by the client, Nov 2026); his portrait is a frame
+  // of his interview in Aludecor's reel (instagram.com/reel/DZM-AOMiLt9), cropped clear of its logo
   architect: {
-    title: ['Architect', 'Vision'],
+    eyebrow: 'Architect Vision',
+    title: ['A reserve', 'within the city'],
+    message: [
+      'Urban Reserve is designed around a simple idea: a calm home with the city within reach. Mira Road East is at a changing point, and the project is meant to mark it.',
+      'Two staggered towers avoid a single block and read as a pair, which creates a new skyline point for the neighbourhood. Close to the ground, we have tried to create a sense of green, so residents come home from the greens and not from the street.',
+      'Height gives views and openness. The greens give calm and a sense of belonging. Together they make a home that feels like a reserve within the city.',
+    ],
+    name: 'Ar. Kaushik Patel',
+    role: 'Message from our architect',
+    image: img('architect'),
   },
+  // the client's landscape vision (Nov 2026), in its own words, cut down to two short paragraphs
   landscape: {
     title: ['Landscape', 'Architecture', 'Vision'],
+    line: 'A private sanctuary, rooted in nature.',
+    body: [
+      'Urban Reserve is envisioned as an exclusive residential retreat where the tranquillity of nature meets the comforts of contemporary living: an immersive green sanctuary within the urban setting.',
+      'Green corridors, shaded pathways, open spaces and intimate retreats encourage exploration, relaxation and meaningful social interaction, so greenery becomes an integral part of everyday living.',
+    ],
     // the sapling held in open hands, cut out of its white ground so it sits on the green
     image: img('sapling-hands'),
     texture: img('leaf-texture'),
   },
+  // the client's landscape brief, The Sculpted Forest (Nov 2026), in its own words, kept to a sentence
+  forest: {
+    title: ['The Sculpted', 'Forest'],
+    line: 'Where the city slows, nature comes alive.',
+    body: 'Rooted in woodland: undulating earth mounds, layered tree canopies, immersive green corridors and organic materiality, a curated wilderness of depth, privacy and discovery.',
+    levels: [
+      { label: 'Ground Level', name: 'The Deep Forest Base', about: 'Dense plantations, shaded walkways, sensory gardens and secluded retreats: a natural buffer from the city.' },
+      { label: 'Podium Level', name: 'The Elevated Canopy', about: 'Recreation, canopy-lined pathways, wellness pockets and gathering spaces: the heart of community life.' },
+    ],
+    close: 'Not just living among nature. Living within it.',
+    image: img('r-pavilion'),
+  },
   building: {
     title: 'Building View',
+    // `edges`: the render's own colours down its left and right edges (sampled at EDGE_STOPS % of its
+    // height, sky to street), for the panel either side of the tower to carry them out
     views: [
-      { id: 'day', label: 'Day', image: img('tower-day') },
-      { id: 'dusk', label: 'Dusk', image: img('tower-dusk') },
+      {
+        id: 'day',
+        label: 'Day',
+        image: img('tower-day'),
+        edges: {
+          // (lower down, the street's grey rather than the dark parking wall at that very edge)
+          left: ['#4382c1', '#689fcd', '#92bade', '#cfd9e4', '#a39d94', '#8d857a', '#76736f'],
+          right: ['#5994cb', '#a1c9ed', '#a8cae7', '#e6e8e9', '#908982', '#b7a99e', '#7a7066'],
+        },
+      },
+      {
+        id: 'dusk',
+        label: 'Dusk',
+        // the project's own aerial render at dusk (sent 16 Nov 2026): no sky, ground to its edges, so
+        // it stands on a blurred copy of itself rather than on edge colours
+        image: img('building-dusk'),
+        surround: 'blur',
+      },
     ],
   },
   lobby: {
@@ -236,19 +296,36 @@ export function roomsLine(unit) {
   return [many(bedroomsOf(unit), 'bedroom', 'bedrooms'), toilets, many(count('Balcony'), 'balcony', 'balconies')].join(' · ')
 }
 
+/*
+ * Amenities runs as the Rivali Park app's does: one whole render first, with a point on each level
+ * (the towers' podium, the forest garden at their foot); a level opens its plan with a point on each
+ * place there is a render of; a point opens the renders, one to the screen. `at` is [left, top] in %
+ * of the picture.
+ */
+export const AMENITIES = {
+  title: 'Amenities',
+}
+
 export const AMENITY_LEVELS = [
   {
     id: 'ground',
     label: 'Ground Level',
-    heading: 'Beyond the Everyday',
-    tagline: 'Nature · Community · Wellbeing',
-    body: 'An active lifestyle zone where landscaped trails and open spaces connect wellness, recreation, leisure and community — a different reason to move, pause, explore or connect.',
+    // the client's landscape brief names the two levels (Nov 2026); its words, a sentence each
+    heading: 'The Deep Forest Base',
+    body: 'An immersive woodland experience through dense plantations, shaded walkways, sensory gardens and secluded retreats, a natural buffer from the city.',
     plan: img('plan-ground'),
+    aspect: 1650 / 1222,
+    // the landscape renders; `at` is where each stands on the plan, [left, top] in % of the picture,
+    // set on the end of its own leader line there
     photos: [
-      { image: img('am-jog'), label: 'Jogging track' },
-      { image: img('am-yoga'), label: 'Meditation grotto' },
-      { image: img('am-kids'), label: 'Children’s play' },
-      { image: img('am-family'), label: 'Periphery greens' },
+      { image: img('r-pavilion'), label: 'Canopy treehouse pavilion', at: [84.1, 25.1] },
+      { image: img('r-art-lawn'), label: 'Understory art trail', at: [76.6, 31.1] },
+      { image: img('r-valley-deck'), label: 'Valley walkway', at: [30.4, 70.3] },
+      { image: img('r-atrium'), label: 'Biophilic atrium', at: [42.9, 45] },
+      // a render with no place marked on the plan comes in the run of pictures only
+      { image: img('r-amphitheatre'), label: 'Forest amphitheatre' },
+      // the renders sent on 17 Nov 2026 (without watermarks)
+      { image: img('r-gate'), label: 'Entrance gate & water feature' },
     ],
     list: [
       'Jogging & walking tracks',
@@ -267,16 +344,21 @@ export const AMENITY_LEVELS = [
   },
   {
     id: 'edeck',
-    label: 'E-Deck',
-    heading: 'A Place for Every Moment',
-    tagline: 'Move · Connect · Relax',
-    body: 'A vibrant lifestyle level where wellness, recreation, entertainment and social experiences come together — for residents of all ages to stay active, celebrate, play or simply unwind.',
+    label: 'Podium Level',
+    heading: 'The Elevated Canopy',
+    body: 'A lighter, more open interpretation of the forest: recreational spaces, canopy-lined pathways, wellness pockets and social gathering areas.',
     plan: img('plan-edeck'),
+    aspect: 1618 / 1173,
     photos: [
-      { image: img('ed-gym'), label: 'Gymnasium' },
-      { image: img('ed-spa'), label: 'Spa & salon' },
-      { image: img('ed-kids'), label: 'Podium landscape' },
-      { image: img('ed-dine'), label: 'Banquet & café' },
+      { image: img('r-pool'), label: 'Infinity pool & deck', at: [48.1, 23.7] },
+      { image: img('r-gym'), label: 'Gymnasium', at: [29.1, 24.8] },
+      { image: img('r-games'), label: 'Open game area', at: [63, 48.9] },
+      { image: img('r-lounge'), label: 'Open lounge area', at: [74.9, 44] },
+      { image: img('r-steam'), label: 'Steam' },
+      { image: img('r-pool-deck'), label: 'Pool deck' },
+      { image: img('r-kids'), label: 'Children’s play area' },
+      { image: img('r-court'), label: 'Pickle-ball court' },
+      { image: img('r-podium-view'), label: 'The podium from a home' },
     ],
     list: [
       'Gymnasium',
@@ -296,13 +378,15 @@ export const AMENITY_LEVELS = [
     id: 'common',
     label: 'Common',
     heading: 'Every Pursuit, One Canopy',
-    tagline: 'Play · Restore · Gather',
     body: 'From sport and leisure to health and rejuvenation, the common amenities are curated for every age and every pace of life.',
     photos: [
-      { image: img('ca-pool'), label: 'Swimming pool' },
-      { image: img('ca-tennis'), label: 'Pickle-ball court' },
-      { image: img('ca-cycle'), label: 'Cycling track' },
-      { image: img('ca-dog'), label: 'Pet-friendly lawns' },
+      { image: img('r-amphitheatre'), label: 'Forest amphitheatre' },
+      { image: img('r-pool'), label: 'Swimming pool' },
+      { image: img('r-steam'), label: 'Steam' },
+      { image: img('r-games'), label: 'Games room' },
+      { image: img('r-pool-deck'), label: 'Swimming pool & kids’ pool' },
+      { image: img('r-kids'), label: 'Children’s play area' },
+      { image: img('r-court'), label: 'Pickle-ball court' },
     ],
     groups: [
       { title: 'Sports & Leisure', items: ['Pickle-ball court', 'Cycling track', 'Pool tables', 'Table tennis', 'Badminton court', 'Skating track', 'Board games', 'Golf simulator'] },
@@ -315,6 +399,17 @@ export const AMENITY_LEVELS = [
   },
 ]
 
+// The Amenities slideshow: every render once, each with its level, the ones sent on 17 Nov 2026
+// first (the gate, the pool deck, the children's play area, the court, the podium from a home)
+const NEWEST = ['r-gate', 'r-pool-deck', 'r-kids', 'r-court', 'r-podium-view'].map(img)
+export const AMENITY_RENDERS = (() => {
+  const seen = new Set()
+  const all = AMENITY_LEVELS.filter((l) => l.plan)
+    .flatMap((l) => l.photos.map((p) => ({ image: p.image, label: p.label, level: l.id, where: l.label, heading: l.heading })))
+    .filter((p) => !seen.has(p.image) && seen.add(p.image))
+  return [...NEWEST.map((image) => all.find((p) => p.image === image)), ...all.filter((p) => !NEWEST.includes(p.image))]
+})()
+
 /*
  * Map positions for the Location 3D map, pasted from Google Maps (checked 5 Oct 2026).
  * To move a pin: right-click the spot on Google Maps, click the coordinates at the top of the menu
@@ -324,9 +419,10 @@ export const AMENITY_LEVELS = [
  */
 const gmaps = (latLng) => latLng.split(',').map(Number).reverse()
 
-// SITE is still an approximate plot centre: replace it with the plot's own pin.
+// SITE is the project's own Google Maps pin (Urban Reserve, Poonam Gardens, Chandan Shanti, Mira Road
+// East), sent by the team on 16 Nov 2026.
 // `heading` turns the ground plan (degrees clockwise) to line it up with the real plot.
-export const SITE = { name: 'Urban Reserve', at: gmaps('19.2752, 72.8712'), heading: -8 }
+export const SITE = { name: 'Urban Reserve', at: gmaps('19.2872662, 72.8732289'), heading: -8 }
 
 export const LOCATION = {
   heading: 'Never far from home',
@@ -370,7 +466,7 @@ export const SPECS = [
       'Exquisite architecture and design',
       'Vehicle-free recreational space',
       'Mesmerising city vistas',
-      '40,000 – 50,000 sq ft of amenities',
+      '40,000 to 50,000 sq ft of amenities',
       '40+ amenities',
       'Four-level parking facility',
     ],
@@ -388,6 +484,16 @@ export const SPECS = [
 ]
 
 export const SPEC_IMAGE = img('tower-dusk')
+
+// Specifications as four pages, the brochure's groups in its order, each with a picture: `groups`
+// are SPECS' titles; `fit` places the picture in its frame.
+const spec = (title) => SPECS.find((g) => g.title === title)
+export const SPEC_PAGES = [
+  { id: 'glance', label: 'At a Glance', image: img('building-day'), fit: 'object-[66%_50%]', groups: [spec('At a Glance')] },
+  { id: 'safe', label: 'Safe & Secure', image: img('lobby'), fit: 'object-[50%_45%]', groups: [spec('Safe & Secure Environs')] },
+  { id: 'eco', label: 'Eco-Friendly', image: img('landscape'), fit: 'object-[50%_60%]', groups: [spec('Eco-Friendly Systems')] },
+  { id: 'homes', label: 'Homes & Amenities', image: img('r-atrium'), fit: 'object-[45%_50%]', groups: [spec('Automated Homes'), spec('Exquisite Amenities')] },
+]
 
 /*
  * The 360° views from each tower, floor by floor. The data are the Marzipano tool's exports and
@@ -433,25 +539,25 @@ export const floorsOf = (towerId) =>
     .map((f) => ({ ...f, id: parseInt(f.label), short: String(parseInt(f.label)) }))
     .reverse()
 
-// A comparison sets two or three homes side by side. The first one opens on three, one of each kind:
-// the first tower's Flat 1 (3 BHK), the second tower's Flat 3 (2 BHK) and the first tower's Jodi 5 + 6.
+// A comparison sets two or three homes side by side, all in one tower (never one tower against the
+// other). The first one opens on three, one of each kind: Flat 1 (3 BHK), Flat 3 (2 BHK) and Jodi 5 + 6.
 export const MOST_COMPARED = 3
-const FIRST_COMPARED = ['towerA.1', 'towerB.3', 'towerA.5-6']
+const FIRST_COMPARED = ['towerA.1', 'towerA.3', 'towerA.5-6']
 
 // The homes a comparison shows, as an address holds them (?compare=towerA.1.20,towerB.3.20, tower,
 // home and floor of each, with &views once it is on their views), or null when it isn't a comparison.
 // What is missing or unknown is taken from the first comparison's home in its place, and a single home
-// is set against its second.
+// is set against its second. Every home takes the first one's tower.
 export function comparison(search) {
   const q = new URLSearchParams(search)
   if (!q.has('compare')) return null
   const asked = q.get('compare').split(',').slice(0, MOST_COMPARED)
   const sides = asked.join('') ? asked : FIRST_COMPARED
+  const tower = TOWERS.find((t) => t.id === sides[0].split('.')[0]) ?? TOWERS[0]
+  const floors = floorsOf(tower.id)
   const homes = Array.from({ length: Math.max(2, sides.length) }, (_, i) => {
-    const [towerId, unitId, floorNo] = (sides[i] ?? '').split('.')
-    const [firstTower, firstUnit] = FIRST_COMPARED[i].split('.')
-    const tower = TOWERS.find((t) => t.id === towerId) ?? TOWERS.find((t) => t.id === firstTower)
-    const floors = floorsOf(tower.id)
+    const [, unitId, floorNo] = (sides[i] ?? '').split('.')
+    const firstUnit = FIRST_COMPARED[i].split('.')[1]
     return {
       tower,
       unit: UNITS.find((u) => u.id === unitId) ?? UNITS.find((u) => u.id === firstUnit),

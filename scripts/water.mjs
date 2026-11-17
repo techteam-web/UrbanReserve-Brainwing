@@ -169,10 +169,45 @@ spread(open.filter((p) => km(p) < 6), 7)
 spread(open.filter((p) => km(p) < 10), 4)
 const boats = spots.map((at, i) => ({ at: round(at), heading: Math.round(rand() * 360), kind: i % 4 === 3 ? 'yacht' : 'fishing' }))
 
+// Bridges over the water: the map paints its roads flat on the ground, under the water (drawn in 3D
+// above it), so where one crosses a creek it was lost under the water. Every bridge that crosses
+// water is kept here, for the scene to lay over it (src/world/bridges.js). From the full-detail tiles.
+const ROADS_Z = 14
+const KIND = { motorway: 'trunk', trunk: 'trunk', primary: 'primary', secondary: 'street', tertiary: 'street', minor: 'minor', service: 'minor', path: 'path', track: 'path', rail: 'rail', transit: 'rail' }
+const anyWater = (p) => polygons.some(({ rings }) => insidePolygon(p, rings))
+const bridges = []
+const rx = (lng) => Math.floor(((lng + 180) / 360) * 2 ** ROADS_Z)
+const ry = (lat) => Math.floor(((1 - Math.log(Math.tan(lat * RAD) + 1 / Math.cos(lat * RAD)) / Math.PI) / 2) * 2 ** ROADS_Z)
+const lng14 = (x) => (x / 2 ** ROADS_Z) * 360 - 180
+const lat14 = (y) => Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** ROADS_Z))) / RAD
+const seen = new Set()
+for (let x = rx(BOX.w); x <= rx(BOX.e); x++) {
+  for (let y = ry(BOX.n); y <= ry(BOX.s); y++) {
+    const buf = new Uint8Array(await (await fetch(template.replace('{z}', ROADS_Z).replace('{x}', x).replace('{y}', y))).arrayBuffer())
+    const layer = new VectorTile(new PbfReader(buf)).layers.transportation
+    for (let i = 0; i < (layer?.length ?? 0); i++) {
+      const f = layer.feature(i)
+      const kind = KIND[f.properties.class]
+      if (f.type !== 2 || f.properties.brunnel !== 'bridge' || !kind) continue
+      for (const line of f.loadGeometry()) {
+        // only what lies on this tile (its buffer repeats the neighbours' edges)
+        const geo = line.filter((p) => p.x >= -64 && p.x <= layer.extent + 64 && p.y >= -64 && p.y <= layer.extent + 64).map((p) => round([lng14(x + p.x / layer.extent), lat14(y + p.y / layer.extent)]))
+        if (geo.length < 2) continue
+        const probes = geo.flatMap((p, k) => (k ? [p, [(p[0] + geo[k - 1][0]) / 2, (p[1] + geo[k - 1][1]) / 2]] : [p]))
+        if (!probes.some(anyWater)) continue
+        const key = kind + geo.flat().join(',')
+        if (seen.has(key)) continue
+        seen.add(key)
+        bridges.push({ kind, path: geo })
+      }
+    }
+  }
+}
+
 const pts = polygons.reduce((n, p) => n + p.rings.reduce((m, r) => m + r.length, 0), 0)
 // `kinds` is each polygon's OpenMapTiles water class (ocean, river, lake, pond…): the sea and the
 // creeks get waves, still water stays calm
-const data = { origin: SITE.at, box: BOX, generated: new Date().toISOString().slice(0, 10), polygons: polygons.map((p) => p.rings), kinds: polygons.map((p) => p.kind), boats }
+const data = { origin: SITE.at, box: BOX, generated: new Date().toISOString().slice(0, 10), polygons: polygons.map((p) => p.rings), kinds: polygons.map((p) => p.kind), boats, bridges }
 writeFileSync(OUT, JSON.stringify(data) + '\n')
 const counts = polygons.reduce((c, p) => ({ ...c, [p.kind]: (c[p.kind] ?? 0) + 1 }), {})
-console.log(`${polygons.length} water polygons (${pts} points; ${JSON.stringify(counts)}; ${doubled.length} doubled ones dropped), ${open.length} open-water cells, ${boats.length} boats -> ${OUT.pathname}`)
+console.log(`${polygons.length} water polygons (${pts} points; ${JSON.stringify(counts)}; ${doubled.length} doubled ones dropped), ${open.length} open-water cells, ${boats.length} boats, ${bridges.length} bridges over water -> ${OUT.pathname}`)

@@ -128,10 +128,20 @@ function Handle({ open, onClick, controls, down = false, place, className = '', 
 // Phones: the floors as chips, lowest first, keeping the current one in view.
 function FloorChips({ floors, current, onPick }) {
   const strip = useRef(null)
+  const placed = useRef(false)
   useEffect(() => {
     const el = strip.current
-    const chip = el?.querySelector('[aria-current]')
-    if (chip) el.scrollTo({ left: chip.offsetLeft - (el.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' })
+    const centre = (behavior) => {
+      const chip = el?.querySelector('[aria-current]')
+      if (!chip) return
+      const left = el.scrollLeft + chip.getBoundingClientRect().left - el.getBoundingClientRect().left - (el.clientWidth - chip.offsetWidth) / 2
+      el.scrollTo({ left, behavior })
+    }
+    // the first time at once, and again once the fonts are in: the chips widen as they arrive, which
+    // (in Safari, where they come in later) left the current one off the end of the strip
+    centre(placed.current ? 'smooth' : 'auto')
+    if (!placed.current) document.fonts?.ready.then(() => centre('auto'))
+    placed.current = true
   }, [current])
   return (
     <div ref={strip} className="-mx-3 mt-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none]">
@@ -172,10 +182,15 @@ export default function Views() {
 
   // in a window too short for the whole rail, it scrolls to keep the current floor in view, as the
   // phones' chips do
+  const railPlaced = useRef(false)
   useEffect(() => {
     const el = rail.current
     const row = el?.querySelector('[data-floors] [aria-current]')
-    if (row && el.scrollHeight > el.clientHeight) el.scrollTo({ top: row.offsetTop - (el.clientHeight - row.offsetHeight) / 2, behavior: 'smooth' })
+    if (!row || el.scrollHeight <= el.clientHeight) return
+    // (as the chips: measured against the rail, and at once the first time)
+    const top = el.scrollTop + row.getBoundingClientRect().top - el.getBoundingClientRect().top - (el.clientHeight - row.offsetHeight) / 2
+    el.scrollTo({ top, behavior: railPlaced.current ? 'smooth' : 'auto' })
+    railPlaced.current = true
   }, [floor.key])
 
   return (

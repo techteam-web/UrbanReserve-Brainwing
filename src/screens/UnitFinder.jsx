@@ -194,10 +194,7 @@ export default function UnitFinder() {
         {/* stacked, the foot leaves room to scroll the last cards above the tray; wide, above the watermark */}
         <div className="grid min-h-full gap-[2.6vh] pb-[calc(var(--watermark-h)+6rem)] lg:h-full lg:grid-cols-[minmax(16rem,22%)_minmax(0,1fr)] lg:gap-x-[2.5vw] lg:pb-[calc(var(--watermark-h)+0.75rem)]">
           <aside className="flex min-h-0 flex-col pt-4 lg:pt-0">
-            <p data-in className="eyebrow text-ember">
-              Residences
-            </p>
-            <div data-in className="mt-[1.6vh] max-w-sm">
+            <div data-in className="max-w-sm">
               <ModeSwitch />
             </div>
             <h2 data-in className="display mt-[2.4vh] text-[clamp(1.9rem,4.6vh,3.4rem)] text-forest-800">

@@ -12,6 +12,8 @@ import { reduced } from '../gsap/gsapConfig'
 import { SITE } from '../data/content'
 import { forest, PONDS } from './site'
 import { duskSky, glassSky, skyEnvironment } from './textures'
+import { createBridges } from './bridges'
+import { paintFacade } from './facade'
 import { rotate, toLngLat, toLocal } from './geo'
 import { HDRI, SUN, SUN_AZ } from './light'
 import { createBoats, createWater, prepareBoat } from './water'
@@ -112,14 +114,27 @@ function unitModel(gltf) {
 // The building's looks, by the material names scripts/building.mjs gives it (its export has no
 // textures). The metal ones (glass and frames) reflect a sky of their own (glassSky). Walls and
 // glass are two-sided, as in the export, whose panes don't all face out.
+// It wears the renders' colours: its walls in their sand, orange and charcoal (painted part by part,
+// facade.js), a little lit from within so the sides the sun misses don't go muddy, the frames that
+// outline the towers in cream, and the glass the renders' pale aqua.
+// The export lays its trim strips (the tall bands down the towers' faces and edges) right on the
+// walls, millimetres apart: drawn as they are, the two took the same pixels by turns, in wavy
+// blotches that crawled as the camera turned. The trim is drawn a hair in front of the walls with a
+// small constant depth offset (about a centimetre at the Reserve view, whatever the angle), so it
+// settles those near-ties and nothing else. A slope-scaled offset must not be used: pushing the
+// walls back that way let the panes and frames recessed behind them poke through every window's
+// edge, in ragged teeth. (The streaks all over the towers were their own shadow: see build().)
+const WALL_GLOW = 0.26
+// the building's flat, plain parts, the only ones that take its shadow (see build())
+const FLAT = ['roof', 'paving', 'green']
 const LOOKS = {
-  wall: { color: '#ece4d6', roughness: 0.78, emissive: '#ece4d6', emissiveIntensity: 0.12, side: THREE.DoubleSide },
-  trim: { color: '#9d978b', roughness: 0.6 },
-  frame: { color: '#3d3226', roughness: 0.4, metalness: 0.7, envMapIntensity: 1.1 },
-  glass: { color: '#b8cad6', roughness: 0.05, metalness: 1, envMapIntensity: 1, side: THREE.DoubleSide },
-  roof: { color: '#8a8f84', roughness: 0.9 },
+  wall: { color: '#ffffff', vertexColors: true, roughness: 0.75, emissive: '#ffffff', emissiveIntensity: WALL_GLOW, side: THREE.DoubleSide },
+  trim: { color: '#efe4c4', roughness: 0.6, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -8 },
+  frame: { color: '#4a4036', roughness: 0.4, metalness: 0.7, envMapIntensity: 1.1 },
+  glass: { color: '#8cc6d6', roughness: 0.08, metalness: 0.9, envMapIntensity: 1.25, side: THREE.DoubleSide },
+  roof: { color: '#b9bcb3', roughness: 0.9 },
   green: { color: '#6f9d5c', roughness: 0.95 },
-  paving: { color: '#d3c6ab', roughness: 0.85 },
+  paving: { color: '#ddd2bb', roughness: 0.85 },
 }
 
 function instanced(model, items) {
@@ -194,6 +209,8 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
   let map, renderer, boats, ground = 0, last = performance.now(), disposed = false
   // the building's metal materials, which reflect env.glass
   const metals = []
+  // the building's materials by look (LOOKS), for the night: its glass lit from within
+  const looked = {}
   // resolves once the HDRI lights the scene (or has failed, leaving the stand-in sky)
   let lightUp
   const lit = new Promise((r) => (lightUp = r))
@@ -207,9 +224,12 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     .then((tex) => (disposed ? tex.dispose() : (env.hdr = tex)))
     .catch(() => (env.sky = true))
   // far water and towers fade into the same golden haze as the map
-  scene.fog = new THREE.Fog('#c9a27c', 14000, 60000)
+  scene.fog = new THREE.Fog('#b4c9dc', 14000, 60000)
   const water = createWater()
   scene.add(water.mesh)
+  // the bridges over it, which the map's own roads went under
+  const bridges = createBridges()
+  scene.add(bridges.group)
   const mixers = []
   const flocks = []
 
@@ -219,9 +239,9 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
 
   // light: the HDRI does the soft fill and reflections, the sun the modelling and the shadows, and a
   // faint cool light from the other side keeps the faces the sun misses from going flat
-  const hemi = new THREE.HemisphereLight('#dfeefa', '#5d7a52', 0.35)
+  const hemi = new THREE.HemisphereLight('#e6f0fa', '#a7ae9f', 0.4)
   hemi.position.set(0, 0, 1)
-  const sun = new THREE.DirectionalLight('#ffe2bc', 3)
+  const sun = new THREE.DirectionalLight('#fff3e2', 3)
   sun.position.copy(SUN_DIR).multiplyScalar(700)
   const fill = new THREE.DirectionalLight('#d2e2f5', 0.5)
   fill.position.set(-SUN[0], -SUN[1], 0.8).multiplyScalar(700)
@@ -316,14 +336,25 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
 
     // the towers on their podium, in plan metres but y-up, stood up
     const building = gltf.urban.scene.clone()
-    building.rotation.x = Math.PI / 2
+    // (its parts in place, in its own metres, for painting the walls)
+    building.updateMatrixWorld(true)
     building.traverse((o) => {
       if (!o.isMesh) return
       const look = o.material.name
+      if (look === 'wall') o.geometry = paintFacade(o.geometry, o.matrixWorld)
       o.material = new THREE.MeshStandardMaterial(LOOKS[look])
+      // the walls' glow is their own colour's, not a white wash over it
+      if (look === 'wall') o.material.onBeforeCompile = (sh) => (sh.fragmentShader = sh.fragmentShader.replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = emissive * vColor.rgb;'))
       if (LOOKS[look]?.metalness) metals.push(o.material)
-      o.castShadow = o.receiveShadow = true
+      ;(looked[look] ??= []).push(o.material)
+      // It casts its shadow, but only its flat parts take one. The sun's shadow map is spread over
+      // the whole plot (some 15 cm a texel), coarser than the balconies, fins and frames are deep:
+      // on the facade they shadowed it in streaks that crawled as the camera circled, which read as
+      // z-fighting all over the towers. The faces the sun misses still go darker with its light.
+      o.castShadow = true
+      o.receiveShadow = FLAT.includes(look)
     })
+    building.rotation.x = Math.PI / 2
     site.add(building)
     dressMetals()
 
@@ -445,6 +476,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
     }
     shadowCatcher.position.z = top + 0.3
     water.settle(ground, (at) => map.queryTerrainElevation(at))
+    bridges.settle(water.levelAt)
     boats?.settle(water.levelAt)
     placePulses()
   }
@@ -515,6 +547,7 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       last = now
       if (!reduced()) pose.time += dt
       syncCamera(args)
+      bridges.update(map)
       animate(dt, pose.time)
       updateEnvironment()
       renderer.resetState()
@@ -565,5 +598,27 @@ export function createReserve({ places, shadows = true, onFrame, onProgress }) {
       placePulses()
     },
     groundAt: (at) => (map?.queryTerrainElevation(at) ?? ground) - ground,
+    // How far into the night (0 day, 1 night): the sun gives way to a cool moon, the HDRI's light and
+    // the haze go down, and the towers' glass glows warm, as lit windows do.
+    setNight(k) {
+      const mix = (a, b) => a + (b - a) * k
+      hemi.intensity = mix(0.4, 0.07)
+      sun.intensity = mix(3, 0.5)
+      sun.color.copy(DAY.sun).lerp(NIGHT.sun, k)
+      fill.intensity = mix(0.5, 0.12)
+      scene.environmentIntensity = mix(1, 0.2)
+      scene.fog.color.copy(DAY.fog).lerp(NIGHT.fog, k)
+      water.setNight(k)
+      bridges.setNight(k)
+      for (const m of looked.glass ?? []) {
+        m.emissive.copy(NIGHT.window)
+        m.emissiveIntensity = mix(0, 0.85)
+      }
+      for (const m of looked.wall ?? []) m.emissiveIntensity = mix(WALL_GLOW, 0.03)
+      map?.triggerRepaint()
+    },
   }
 }
+
+const DAY = { sun: new THREE.Color('#fff3e2'), fog: new THREE.Color('#b4c9dc') }
+const NIGHT = { sun: new THREE.Color('#9fb4ff'), fog: new THREE.Color('#0b1a21'), window: new THREE.Color('#ffb766') }

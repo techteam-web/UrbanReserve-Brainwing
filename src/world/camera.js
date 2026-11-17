@@ -27,9 +27,10 @@ function hermite(s, y0, y1, m0, m1) {
 }
 
 /*
- * The only camera on the Location map: visitors don't steer it. Stops fly it (climbing out
- * over long hops, banking through the turn), a slow orbit keeps it alive at rest, and the cursor
- * leans it gently left and right. All of it is composed into one jumpTo per frame.
+ * The only camera on the Location map, after the Rustomjee app's: stops fly it (climbing out over
+ * long hops, banking through the turn), a slow orbit keeps it turning at rest, a drag turns it round
+ * by hand (the orbit waits, then eases back in), and the cursor leans it gently left and right. All
+ * of it is composed into one jumpTo per frame.
  */
 export function createDirector(map) {
   const cam = {
@@ -41,6 +42,9 @@ export function createDirector(map) {
     elevation: map.getCenterElevation(),
   }
   const look = { x: 0, y: 0, tx: 0, ty: 0 }
+  // a drag turning the view: where it started, and whether it has moved far enough to not be a click
+  let drag = null
+  let dragged = false
   let flight = null
   let orbit = 0
   let orbitAge = 0
@@ -63,12 +67,48 @@ export function createDirector(map) {
     document.documentElement.addEventListener('pointerleave', onLeave)
   }
 
+  // Dragging across the map turns the view round its centre (degrees per pixel); not mid-flight,
+  // and not before the scene is on show.
+  const TURN = 0.22
+  const surface = map.getCanvasContainer()
+  surface.style.touchAction = 'none'
+  const onDown = (e) => {
+    if (!leaning || flight || (e.pointerType === 'mouse' && e.button !== 0)) return
+    drag = { x: e.clientX, bearing: cam.bearing, id: e.pointerId }
+    dragged = false
+    surface.setPointerCapture?.(e.pointerId)
+  }
+  const onDrag = (e) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const dx = e.clientX - drag.x
+    if (Math.abs(dx) > 4) dragged = true
+    cam.bearing = drag.bearing - dx * TURN
+  }
+  const onUp = (e) => {
+    if (!drag || e.pointerId !== drag.id) return
+    drag = null
+    orbitAge = 0
+    surface.style.cursor = ''
+  }
+  // the click that ends a drag picks nothing
+  const onClick = (e) => {
+    if (!dragged) return
+    dragged = false
+    e.stopPropagation()
+    e.preventDefault()
+  }
+  surface.addEventListener('pointerdown', onDown)
+  surface.addEventListener('pointermove', onDrag)
+  surface.addEventListener('pointerup', onUp)
+  surface.addEventListener('pointercancel', onUp)
+  surface.addEventListener('click', onClick, true)
+
   const tick = (time, deltaMs) => {
     const dt = Math.min(0.05, deltaMs / 1000)
     const ease = Math.min(1, dt * 3)
     look.x += (look.tx - look.x) * ease
     look.y += (look.ty - look.y) * ease
-    if (orbit && !flight) {
+    if (orbit && !flight && !drag) {
       orbitAge += dt
       const k = Math.min(1, orbitAge / 3) // ease into the orbit
       cam.bearing += orbit * dt * k * k
@@ -94,6 +134,7 @@ export function createDirector(map) {
 
   function fly(to, { duration, hop, spin = 0, onDone } = {}) {
     flight?.kill()
+    drag = null
     orbit = 0
     const from = { ...cam }
     const m0 = MercatorCoordinate.fromLngLat(from.center)
@@ -216,6 +257,8 @@ export function createDirector(map) {
     fly,
     descend,
     jump,
+    // whether a drag is turning the view (a stop's own move waits for it to end)
+    dragging: () => Boolean(drag),
     lean(on) {
       leaning = on
       if (!on) onLeave()
@@ -223,6 +266,11 @@ export function createDirector(map) {
     dispose() {
       flight?.kill()
       gsap.ticker.remove(tick)
+      surface.removeEventListener('pointerdown', onDown)
+      surface.removeEventListener('pointermove', onDrag)
+      surface.removeEventListener('pointerup', onUp)
+      surface.removeEventListener('pointercancel', onUp)
+      surface.removeEventListener('click', onClick, true)
       window.removeEventListener('pointermove', onMove)
       document.documentElement.removeEventListener('pointerleave', onLeave)
     },

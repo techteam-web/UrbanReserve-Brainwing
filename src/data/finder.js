@@ -13,13 +13,14 @@ export const ALL_TOWERS = `Towers ${TOWERS.map((t) => t.label.replace(/^Tower /,
 
 // What the finder was left with, so a comparison's × (or the other way in, and back) finds it as it
 // was: its filters, the homes picked to compare, which drawing the cards show, and the comparison's tab.
-export const finder = { configs: [], flats: [], features: [], picked: [], show: 'plan', tab: 'plan' }
+// `tower` is the one tower a comparison keeps to (a home picked on a tower's floor plan brings its own).
+export const finder = { configs: [], flats: [], features: [], picked: [], show: 'plan', tab: 'plan', tower: TOWERS[0].id }
 
-// The homes a comparison starts with: each picked plan in the first tower, at the height its views
+// The homes a comparison starts with: each picked plan in the finder's tower, at the height its views
 // open on (the export's starting floor). The plans are alike in both towers; the views step can move
-// any of them to the other tower.
+// them all to the other tower together.
 export function homesOf(ids) {
-  const tower = TOWERS[0]
+  const tower = TOWERS.find((t) => t.id === finder.tower) ?? TOWERS[0]
   const floors = floorsOf(tower.id)
   const floor = floors.find((f) => f.key === tower.start.key) ?? floors[0]
   return ids.map((id) => ({ tower, unit: UNITS.find((u) => u.id === id), floor }))
@@ -28,4 +29,5 @@ export function homesOf(ids) {
 // Leaving a comparison for the finder puts its homes in the finder's tray.
 export const keepPicked = (homes) => {
   finder.picked = [...new Set(homes.map((h) => h.unit.id))]
+  finder.tower = homes[0].tower.id
 }
