@@ -52,7 +52,7 @@ const wing = (i) => TOWERS[i].at.map((v, k) => (v + outer(i)[k]) / 2)
  * The reserve turns a full circle in about two minutes.
  */
 export const VIEWS = {
-  reserve: { center: geo(4, -6), zoom: 17.7, pitch: 63, bearing: H - 32, lift: 34, orbit: 3 },
+  reserve: { center: geo(4, -6), zoom: 17.7, pitch: 63, bearing: H - 32, lift: 34, orbit: 4.5 },
   '2bhk': { center: geo(...wing(0)), zoom: 18.15, pitch: 72, bearing: H + 36, lift: 64, orbit: 1.6, spin: 40 },
   '3bhk': { center: geo(...wing(1)), zoom: 18.15, pitch: 72, bearing: H + 12, lift: 64, orbit: 1.6, spin: -50 },
   '3bhk-jodi': { center: geo(...wing(1)), zoom: 18.3, pitch: 77, bearing: H + 74, lift: 62, orbit: 1.6, spin: 60 },

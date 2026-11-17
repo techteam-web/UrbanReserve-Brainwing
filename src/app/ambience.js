@@ -2,9 +2,10 @@ import { useSyncExternalStore } from 'react'
 import { fullscreenSupported, isFullscreen } from './gate'
 
 /*
- * The background sound: a nature ambience looping quietly under the whole app (public/audio/
- * ambience.m4a, a seamless loop cut from "Nature Ambience Sleep Music.wav", its fades trimmed and its
- * end crossfaded into its start). Browsers only allow sound after a visitor's tap, so it starts with
+ * The background sound: forest birdsong looping quietly under the whole app (public/audio/
+ * ambience.m4a). It is Mixkit's "Forest birds ambience" (mixkit.co, sound 1210, Mixkit Sound Effects
+ * Free License: commercial use in a product, no attribution, not to be redistributed on its own),
+ * evened out, levelled to about -17 LUFS and made seamless by crossfading its last 4 s into its start. Browsers only allow sound after a visitor's tap, so it starts with
  * the first one anywhere (on desktop, the tap that takes the app full screen) unless the visitor has
  * turned it off before; that choice is remembered on the device. It plays through Web Audio so it can
  * fade in and out (an iPhone ignores an audio element's own volume), and it goes quiet while the app

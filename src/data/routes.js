@@ -1,4 +1,4 @@
-import { AMENITY_LEVELS, comparison, FLOOR_PLANS, img, isFinder, LANDING, LOCATION, SPEC_IMAGE, towerFloor, unitOf, UNITS } from './content.js'
+import { AMENITY_RENDERS, AMENITY_LEVELS, comparison, FLOOR_PLANS, img, isFinder, LANDING, LOCATION, SPEC_PAGES, towerFloor, unitOf, UNITS } from './content.js'
 import { BUILDING, pickedFloor } from './residences.js'
 
 // What the page transition (src/app/Navigator.jsx) needs to know of each screen. A value that is a
@@ -36,7 +36,7 @@ export const ROUTE_STEP = {
 const I = (...names) => names.map(img)
 export const ROUTE_IMAGES = {
   landing: [LANDING.image],
-  overview: [...I('forest', 'sapling-hands', 'leaf-texture', 'tower-day', 'tower-dusk', 'lobby', 'sun-felt')],
+  overview: [...I('forest', 'architect', 'sapling-hands', 'leaf-texture', 'tower-day', 'building-dusk', 'lobby', 'sun-felt')],
   residences: (search) => {
     const compared = comparison(search)
     if (compared) return compared.homes.map((h) => (compared.views ? `${h.floor.tiles}/preview.jpg` : h.unit.plan))
@@ -47,8 +47,14 @@ export const ROUTE_IMAGES = {
     const plans = [FLOOR_PLANS.find((p) => p.id === at.tower.id).plan, BUILDING.image]
     return at.flat ? [...plans, unitOf(at.flat).plan] : plans
   },
-  amenities: [AMENITY_LEVELS[0].plan, ...AMENITY_LEVELS[0].photos.map((p) => p.image)],
+  // a level's plan, or the render the slideshow is on (see Amenities' address)
+  amenities: (search) => {
+    const q = new URLSearchParams(search)
+    const level = AMENITY_LEVELS.find((l) => l.plan && l.id === q.get('level'))
+    if (level) return [level.plan]
+    return [(AMENITY_RENDERS[Number(q.get('see'))] ?? AMENITY_RENDERS[0]).image]
+  },
   views: (search) => [`${towerFloor(search).floor.tiles}/preview.jpg`],
   location: [LOCATION.map],
-  specifications: [SPEC_IMAGE],
+  specifications: SPEC_PAGES.map((p) => p.image),
 }

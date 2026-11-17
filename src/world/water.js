@@ -18,7 +18,8 @@ const STILL = 0.12
 const SHORE = { half: 9000, size: 1024, range: 400 }
 
 // The water's colours: deep water and the shallows.
-const TONES = { deep: '#082b47', shallow: '#2b97b8' }
+// turquoise shallows to a clear blue offshore, as the Rustomjee app's sea
+const TONES = { deep: '#2a8fb8', shallow: '#6fd6da' }
 
 /*
  * The sea, the creeks and the ponds around the reserve as one calm, glossy surface (polygons from
@@ -118,8 +119,14 @@ export function createWater() {
     update(t) {
       uniforms.uTime.value = t
     },
+    // how far into the night (0..1): the turquoise and the deep blue both go down to ink
+    setNight(k) {
+      uniforms.uDeep.value.set(TONES.deep).lerp(NIGHT_TONES.deep, k)
+      uniforms.uShallow.value.set(TONES.shallow).lerp(NIGHT_TONES.shallow, k)
+    },
   }
 }
+const NIGHT_TONES = { deep: new THREE.Color('#03121e'), shallow: new THREE.Color('#0f3c4c') }
 
 // The shore field as a texture.
 function fieldTexture(data, size) {

@@ -25,6 +25,8 @@ uniform vec4 uA;      // altitude, half thickness, coverage, feature size (m)
 uniform vec4 uB;
 uniform float uMist;  // extra cover (intro, loading)
 uniform vec3 uHaze;
+uniform float uNight; // 0 day, 1 night: the clouds lose the sun's warmth and go down to moonlit grey
+const vec3 MOON = vec3(0.17, 0.21, 0.27);
 uniform float uClear; // how far the clouds part in front of the subject
 uniform vec3 uFlow;   // where the camera is heading on screen (ndc), and how far it has flown in
 uniform int uOne;     // always 1; see fbm
@@ -111,7 +113,8 @@ vec4 deck(vec3 ro, vec3 rd, vec4 L, vec2 wind, out float t) {
   vec3 top = mix(vec3(0.6, 0.62, 0.66), vec3(1.0, 0.92, 0.82), lit);
   vec3 under = mix(vec3(0.3, 0.34, 0.36), vec3(0.86, 0.68, 0.54), lit * 0.75);
   vec3 col = above ? top : under;
-  col += vec3(1.0, 0.72, 0.42) * pow(max(dot(rd, uSun), 0.0), 5.0) * (1.0 - d) * 0.9;
+  col += vec3(1.0, 0.72, 0.42) * pow(max(dot(rd, uSun), 0.0), 5.0) * (1.0 - d) * 0.9 * (1.0 - uNight);
+  col *= mix(vec3(1.0), MOON, uNight);
   float fade = exp(-tt / 14000.0);
   col = mix(uHaze, col, fade);
   float a = d * 0.94 * mix(0.25, 1.0, fade);
@@ -162,7 +165,7 @@ void main() {
     float n1 = fbm(q * exp2(2.0 - f) + drift, 5) - 0.5;
     float n = 0.5 + ((1.0 - f) * n0 + f * n1) / sqrt((1.0 - f) * (1.0 - f) + f * f);
     float fa = clamp(fog * (0.55 + 0.75 * n) + fog * fog * 0.4, 0.0, 1.0);
-    vec3 fc = mix(vec3(0.78, 0.8, 0.8), vec3(1.0, 0.93, 0.85), n);
+    vec3 fc = mix(vec3(0.78, 0.8, 0.8), vec3(1.0, 0.93, 0.85), n) * mix(vec3(1.0), MOON, uNight);
     c = vec4(fc * fa, fa) + c * (1.0 - fa);
   }
   frag = c;
@@ -230,7 +233,7 @@ export function createClouds(canvas, { scale = 0.5, solids = [] } = {}) {
     }
     status = 'ready'
     loc = gl.getAttribLocation(prog, 'aPos')
-    u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uClear', 'uFlow', 'uOne', 'uWall', 'uSolid', 'uSolids'].map((n) => [n, gl.getUniformLocation(prog, n)]))
+    u = Object.fromEntries(['uInv', 'uEye', 'uTime', 'uSun', 'uA', 'uB', 'uMist', 'uHaze', 'uNight', 'uClear', 'uFlow', 'uOne', 'uWall', 'uSolid', 'uSolids'].map((n) => [n, gl.getUniformLocation(prog, n)]))
     return true
   }
   const buf = gl.createBuffer()
@@ -279,11 +282,13 @@ export function createClouds(canvas, { scale = 0.5, solids = [] } = {}) {
 
   // decks: altitude and half-thickness (m), coverage 0..1, feature size (m)
   const params = {
-    a: { alt: 215, half: 48, cover: 0.5, size: 260 },
+    // the low deck, kept off (cover 0): there is one layer of cloud, the high one
+    a: { alt: 215, half: 48, cover: 0, size: 260 },
     b: { alt: 4200, half: 380, cover: 0.56, size: 1300 },
     mist: 1,
     clear: 0.45,
-    haze: [0.86, 0.62, 0.45],
+    haze: [0.71, 0.79, 0.86],
+    night: 0,
   }
   const vec = (d) => [d.alt, d.half, d.cover, d.size]
 
@@ -331,6 +336,7 @@ export function createClouds(canvas, { scale = 0.5, solids = [] } = {}) {
       gl.uniform4f(u.uB, ...vec(params.b))
       gl.uniform1f(u.uMist, params.mist)
       gl.uniform3f(u.uHaze, ...params.haze)
+      gl.uniform1f(u.uNight, params.night)
       gl.uniform1f(u.uClear, params.clear)
       gl.uniform3f(u.uFlow, flow.x, flow.y, flow.phase)
       gl.uniform1i(u.uOne, 1)

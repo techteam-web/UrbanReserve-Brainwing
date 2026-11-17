@@ -3,6 +3,7 @@ import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { decodeImages } from '../app/decode'
 import { compareQuery, configOf, facingOf, floorName, floorsOf, ROOM_ORDER, roomsLine, TOWERS } from '../data/content'
+import { areasOf, ROOM_KINDS } from '../data/rooms'
 import { finder, keepPicked } from '../data/finder'
 import { SCENES } from '../data/scenes'
 import { Segmented } from '../components/ui'
@@ -23,12 +24,8 @@ const COLUMNS = { 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3' }
 // turned (see PanoramaViewer's `still`).
 const LOOK = { pitch: 0.2, fov: 1.35 }
 
-// The homes' names: their tower too when they're in different towers (a home set against itself in the
-// other tower, from Visual Selection).
-const namesOf = (homes) => {
-  const towers = new Set(homes.map((h) => h.tower.id)).size > 1
-  return homes.map((h) => (towers ? `${h.tower.label} ${h.unit.label}` : h.unit.label))
-}
+// The homes' names (all in one tower, so the plan's name is enough)
+const namesOf = (homes) => homes.map((h) => h.unit.label)
 
 // The comparison's head: what is set side by side, and the ways on and out.
 function Head({ homes, step, children }) {
@@ -38,7 +35,8 @@ function Head({ homes, step, children }) {
         Compare · {namesOf(homes).join(' · ')}
         {step && ` · ${step}`}
       </h2>
-      <div data-in className="flex flex-wrap items-center gap-2">
+      {/* no wider than the header, so the tabs in it narrow to a phone's width rather than run off it */}
+      <div data-in className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
         {children}
       </div>
     </header>
@@ -54,7 +52,57 @@ function useLeave(homes) {
   }
 }
 
-function PlanCard({ home, name, onView }) {
+// The rooms of the kind picked, lit on a plan: a soft ember fill (one layer, so where boxes overlap it
+// doesn't darken) with a fine edge round each, fading in and out
+function RoomGlow({ unit, kind }) {
+  const areas = areasOf(unit)
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full">
+      {Object.entries(areas).map(([k, boxes]) => (
+        <g key={k} className="transition-opacity duration-500" opacity={k === kind ? 1 : 0}>
+          <g opacity="0.32" fill="var(--color-ember)">
+            {boxes.map(([x, y, w, h], i) => (
+              <rect key={i} x={x} y={y} width={w} height={h} />
+            ))}
+          </g>
+          <g fill="none" stroke="var(--color-ember)" strokeWidth="1.6" vectorEffect="non-scaling-stroke">
+            {boxes.map(([x, y, w, h], i) => (
+              <rect key={i} x={x} y={y} width={w} height={h} vectorEffect="non-scaling-stroke" />
+            ))}
+          </g>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
+// The kinds of room the homes on show have, to light on all their plans at once ("click on bedroom,
+// and the bedrooms of all three light up"); a second tap puts the light out
+function RoomPicker({ homes, kind, onPick }) {
+  const kinds = ROOM_KINDS.filter((k) => homes.some((h) => areasOf(h.unit)[k.id]))
+  return (
+    <div data-in role="group" aria-label="Light a kind of room on every plan" className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+      <span className="label shrink-0 pr-1 text-[max(0.56rem,8.5px)] tracking-[0.2em] text-ink/55">Show</span>
+      {kinds.map((k) => {
+        const on = kind === k.id
+        return (
+          <button
+            key={k.id}
+            onClick={() => onPick(on ? null : k.id)}
+            aria-pressed={on}
+            className={`label shrink-0 rounded-full border px-3.5 py-2 text-[max(0.56rem,8.5px)] tracking-[0.14em] transition-colors duration-300 active:scale-95 ${
+              on ? 'border-ember bg-ember text-white' : 'border-forest-900/20 bg-white/60 text-forest-900 hover:border-forest-900/60 hover:bg-white'
+            }`}
+          >
+            {k.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function PlanCard({ home, name, kind, onView }) {
   const { unit } = home
   return (
     <article data-in className="flex min-h-0 flex-col lg:row-span-4 lg:grid lg:grid-rows-subgrid">
@@ -63,7 +111,16 @@ function PlanCard({ home, name, onView }) {
         aria-label={`${name}: view the plan`}
         className="group relative min-h-[min(70vw,24rem)] overflow-hidden rounded-[1.25rem] bg-white shadow-[0_30px_60px_-40px_rgb(20_52_41/0.55)] ring-1 ring-forest-900/10 transition-shadow duration-300 outline-none hover:ring-forest-900/35 focus-visible:ring-2 focus-visible:ring-ember lg:min-h-0 lg:flex-1"
       >
-        <img src={unit.plan} alt={`${unit.label} floor plan`} draggable="false" className="absolute inset-[5%] size-[90%] object-contain transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-[1.03]" />
+        {/* the drawing in a frame of its own shape, so the rooms lit over it sit on their walls */}
+        <span className="absolute inset-[5%] @container-size">
+          <span
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-[1.03]"
+            style={{ width: `min(100cqw, 100cqh * ${unit.aspect})`, aspectRatio: unit.aspect }}
+          >
+            <img src={unit.plan} alt={`${unit.label} floor plan`} draggable="false" className="absolute inset-0 size-full" />
+            <RoomGlow unit={unit} kind={kind} />
+          </span>
+        </span>
         {unit.flats.length > 1 && (
           <span className="label absolute left-3 top-3 rounded-full bg-paper/95 px-2.5 py-1 text-[max(0.52rem,8.5px)] tracking-[0.14em] text-forest-800 ring-1 ring-forest-900/10">Jodi · two flats</span>
         )}
@@ -154,6 +211,7 @@ export function ComparePlans({ homes }) {
   const { go } = useNav()
   const [tab, setTab] = useState(finder.tab)
   const [sheet, setSheet] = useState(null)
+  const [kind, setKind] = useState(null)
   const leave = useLeave(homes)
   const names = namesOf(homes)
   const plans = homes.map((h) => h.unit.plan).join()
@@ -179,11 +237,14 @@ export function ComparePlans({ homes }) {
           </Head>
 
           {tab === 'plan' ? (
-            <div className={`grid gap-[clamp(1.4rem,2.2vw,2.75rem)] lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)_auto_auto_auto] lg:gap-y-0 ${COLUMNS[homes.length]}`}>
-              {homes.map((h, i) => (
-                <PlanCard key={i} home={h} name={names[i]} onView={() => setSheet(h.unit)} />
-              ))}
-            </div>
+            <>
+              <RoomPicker homes={homes} kind={kind} onPick={setKind} />
+              <div className={`grid gap-[clamp(1.4rem,2.2vw,2.75rem)] lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)_auto_auto_auto] lg:gap-y-0 ${COLUMNS[homes.length]}`}>
+                {homes.map((h, i) => (
+                  <PlanCard key={i} home={h} name={names[i]} kind={kind} onView={() => setSheet(h.unit)} />
+                ))}
+              </div>
+            </>
           ) : (
             <KeyAndRooms homes={homes} names={names} />
           )}
@@ -196,7 +257,8 @@ export function ComparePlans({ homes }) {
 }
 
 // The third step: from each home, the one way it looks out, at the height of a floor picked for all of
-// them, as still pictures side by side. Each home's tower can change, as the towers see differently.
+// them, as still pictures side by side. The tower changes for all of them together: a comparison keeps
+// to one tower.
 export function CompareViews({ homes }) {
   const root = useRef(null)
   const { go } = useNav()
@@ -211,7 +273,8 @@ export function CompareViews({ homes }) {
   const show = (next) => go('residences', compareQuery(next, true), { replace: true })
   const atFloor = (towerId, n) => floorsOf(towerId).find((f) => f.id === n) ?? floorsOf(towerId)[0]
   const pickFloor = (n) => show(homes.map((h) => ({ ...h, floor: atFloor(h.tower.id, n) })))
-  const pickTower = (i, id) => show(homes.map((h, k) => (k === i ? { ...h, tower: TOWERS.find((t) => t.id === id), floor: atFloor(id, floorId) } : h)))
+  const tower = homes[0].tower
+  const pickTower = (id) => show(homes.map((h) => ({ ...h, tower: TOWERS.find((t) => t.id === id), floor: atFloor(id, floorId) })))
 
   return (
     <section ref={root} className="screen bg-paper text-forest-900">
@@ -224,7 +287,8 @@ export function CompareViews({ homes }) {
             <CloseButton onClick={leave} label="Back to the unit finder" />
           </Head>
 
-          <div data-in role="group" aria-label="The height of the views" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <div data-in role="group" aria-label="The tower and the height of the views" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Segmented items={TOWERS} value={tower.id} onChange={(id) => id !== tower.id && pickTower(id)} size="sm" className="w-[min(100%,12.5rem)]" />
             <p className="label text-[max(0.58rem,9px)] tracking-[0.2em] text-ink/60">At the height of floor</p>
             <div className="flex flex-wrap gap-1.5">
               {floorsOf(homes[0].tower.id).map((f) => {
@@ -259,13 +323,10 @@ export function CompareViews({ homes }) {
                   </Suspense>
                 </div>
                 <figcaption className="mt-[1.3vh]">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                    <p className="flex items-baseline gap-2.5">
-                      <span className="display text-[clamp(1.25rem,2.7vh,1.9rem)] text-forest-900">{h.unit.label}</span>
-                      <span className="label text-[max(0.56rem,8.5px)] tracking-[0.14em] text-ember-deep">{configOf(h.unit).label}</span>
-                    </p>
-                    <Segmented items={TOWERS} value={h.tower.id} onChange={(id) => id !== h.tower.id && pickTower(i, id)} size="sm" className="w-[min(100%,12.5rem)]" />
-                  </div>
+                  <p className="flex items-baseline gap-2.5">
+                    <span className="display text-[clamp(1.25rem,2.7vh,1.9rem)] text-forest-900">{h.unit.label}</span>
+                    <span className="label text-[max(0.56rem,8.5px)] tracking-[0.14em] text-ember-deep">{configOf(h.unit).label}</span>
+                  </p>
                   <p className="label mt-1.5 text-[max(0.55rem,8.5px)] tracking-[0.14em] text-ink/55">
                     From {h.tower.label} · {h.floor.height} m up, the {floorName(h.floor.id).toLowerCase()}
                   </p>

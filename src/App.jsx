@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Navigator from './app/Navigator'
 import Chrome from './app/Chrome'
 import FullscreenGate from './app/FullscreenGate'
+import RotateHint from './app/RotateHint'
 import Intro from './app/Intro'
 import SoundSwitch from './app/SoundSwitch'
 import { useNav } from './app/nav'
@@ -55,6 +56,7 @@ export default function App() {
       <Intro />
       <SoundSwitch />
       <FullscreenGate />
+      <RotateHint />
       <Watermark />
       <div className="grain pointer-events-none fixed inset-0 z-95 hidden opacity-[0.22] mix-blend-soft-light pointer-fine:block" aria-hidden="true" />
     </Navigator>

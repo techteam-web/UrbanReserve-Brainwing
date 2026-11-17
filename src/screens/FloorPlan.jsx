@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
-import { compareQuery, FLOOR_PLANS, floorName, TOWERS, unitOf, viewFloor } from '../data/content'
+import { FLOOR_PLANS, floorName, MOST_COMPARED, unitOf, viewFloor } from '../data/content'
+import { finder } from '../data/finder'
 import { BUILDING } from '../data/residences'
 import { Icon, Segmented, Swap } from '../components/ui'
 import ZoomPan from '../components/ZoomPan'
@@ -60,17 +61,14 @@ function FlatPanel({ tower, floor, flat, onClose }) {
   const { go } = useNav()
   const unit = unitOf(flat)
   const view = viewFloor(tower.id, floor.n)
-  const other = TOWERS.find((t) => t.id !== tower.id)
   const toView = () => go('views', `?tower=${tower.id}&floor=${floor.n}&flat=${flat.id}`)
-  // against the same home in the other tower: the towers' homes are alike, so what differs is the view
-  const toCompare = () =>
-    go(
-      'residences',
-      compareQuery([
-        { tower: TOWERS.find((t) => t.id === tower.id), unit, floor: view },
-        { tower: other, unit, floor: viewFloor(other.id, floor.n) },
-      ]),
-    )
+  // a comparison keeps to one tower: this home goes into the unit finder's tray, in this tower, for the
+  // visitor to pick the homes to set beside it
+  const toCompare = () => {
+    finder.tower = tower.id
+    finder.picked = [...new Set([unit.id, ...finder.picked])].slice(0, MOST_COMPARED)
+    go('residences', '?units')
+  }
 
   return (
     // on a short screen the drawing gives way first, then the room list down to a few rows, and past
@@ -163,8 +161,7 @@ export default function FloorPlan({ at }) {
       <div className="safe pane h-full">
         <div className="grid min-h-full grid-rows-[auto_minmax(14rem,1fr)] gap-[3vh] lg:h-full lg:grid-cols-[minmax(16rem,24%)_1fr] lg:grid-rows-none lg:gap-[2.5vw]">
           <div className="flex flex-col justify-center">
-            <p data-in className="eyebrow text-ember">Residences</p>
-            <div data-in className="mt-[1.6vh] max-w-sm">
+            <div data-in className="max-w-sm">
               <ModeSwitch />
             </div>
             <button data-in onClick={toTowers} className="label mt-[2.6vh] flex items-center gap-2 self-start py-1 text-[max(0.62rem,9px)] text-ember-deep transition-colors duration-500 hover:text-forest-900">
