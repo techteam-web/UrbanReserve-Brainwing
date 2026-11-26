@@ -88,7 +88,7 @@ const PanoramaViewer = forwardRef(function PanoramaViewer({ scenes, active, auto
     }
   }, [active, scenes, autorotate, mouseViewMode, facing, still])
 
-  return <div ref={host} className={`absolute inset-0 ${still ? 'pointer-events-none' : 'cursor-grab active:cursor-grabbing'}`} />
+  return <div ref={host} className={`absolute inset-0 ${still ? 'pointer-events-none' : 'touch-none cursor-grab active:cursor-grabbing'}`} />
 })
 
 export default PanoramaViewer

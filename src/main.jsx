@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
+import './app/touch.js'
 import App from './App.jsx'
 
 // Floor Plans is now part of Residences: an old link opens the same view there

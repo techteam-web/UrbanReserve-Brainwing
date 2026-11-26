@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from '../gsap/gsapConfig'
 import { useIntro } from '../hooks/useIntro'
+import { useScrub } from '../hooks/useScrub'
 import { useNav } from '../app/nav'
 import { floorName } from '../data/content'
 import { BUILDING, SALE_TOWER } from '../data/residences'
@@ -117,6 +118,8 @@ export default function Building() {
   }, [])
 
   const open = (floor) => go('residences', `?tower=${TOWER.id}&floor=${floor.n}`)
+  // a finger run up or down the tower lights the floors it passes, and opens the one it lets go on
+  const scrub = useScrub({ onOver: setLit, onPick: (n) => open(FLOORS.get(n).floor) })
 
   const onKey = (e, n) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -148,7 +151,7 @@ export default function Building() {
       {/* the floors, laid over the picture where it lies */}
       <div ref={marks} className="absolute left-0 top-0">
         {TOWER && (
-          <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" role="group" aria-label={`Floors of homes in ${TOWER.label}, each opening its plan`}>
+          <svg {...scrub} viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full touch-none" role="group" aria-label={`Floors of homes in ${TOWER.label}, each opening its plan`}>
             <g aria-hidden="true" className="pointer-events-none">
               {TOWER.floors.map((floor) => (
                 <polygon key={floor.n} data-sweep={floor.n} points={floor.points} className="fill-ivory/30 opacity-0" />
@@ -164,6 +167,7 @@ export default function Building() {
                     return () => bands.current.delete(n)
                   }}
                   points={floor.points}
+                  data-floor={n}
                   role="link"
                   tabIndex={n === current ? 0 : -1}
                   aria-label={`${TOWER.label}, ${floorName(n)}`}

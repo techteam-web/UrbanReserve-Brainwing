@@ -1,322 +1,424 @@
 import { useEffect, useRef, useState } from 'react'
+import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
 import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { decodeImages } from '../app/decode'
-import { bedroomsOf, compareQuery, configOf, CONFIGS, MOST_COMPARED, roomsLine, UNITS } from '../data/content'
-import { ALL_TOWERS, finder, HOME_FLOORS, homesOf } from '../data/finder'
-import { Swap } from '../components/ui'
-import ZoomPan from '../components/ZoomPan'
+import { compareQuery, configOf, MOST_COMPARED, roomsLine, UNITS } from '../data/content'
+import { ALL_TOWERS, AREA, areaOf, countWith, FACETS, filterHomes, filtering, filtersOn, finder, FLOOR_RANGE, homesOf, isJodi, NO_FILTERS, SORTS, sqft } from '../data/finder'
 import KeyPlan from '../components/KeyPlan'
 import { Mark, Pill } from '../components/Pill'
 import Botanical from '../art/Botanical'
 import ModeSwitch from './ModeSwitch'
 import PlanSheet from './PlanSheet'
+import CompareSheet from './CompareSheet'
 
-// every kind of home, then each bedroom count
-const KINDS = [{ id: 0, label: 'All' }, ...CONFIGS]
-// the homes in the order the list shows them: by their bedrooms, fewest first
-const ORDERED = CONFIGS.flatMap((c) => UNITS.filter((u) => bedroomsOf(u) === c.id))
-const ofKind = (kind) => (kind ? ORDERED.filter((u) => bedroomsOf(u) === kind) : ORDERED)
-const two = (n) => String(n).padStart(2, '0')
-const where = (u) => (u.flats.length > 1 ? `Flats ${u.flats.join(' + ')}, joined` : `Flat ${u.flats[0]} on every floor`)
+const where = (u) => (isJodi(u) ? `Flats ${u.flats.join(' + ')}, joined` : `Flat ${u.flats[0]} on every floor`)
+const FLATS = FACETS.find((f) => f.key === 'flats')
+const CHIPS = FACETS.filter((f) => f !== FLATS)
 
-// A bedroom count to show the homes of, with how many there are.
-function Kind({ on, count, onClick, children }) {
+// A filter's chip, with how many homes it would leave; one that would leave none stands back.
+function Chip({ on, count, onClick, children }) {
+  const none = !on && count === 0
   return (
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`label flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-[max(0.58rem,9px)] tracking-[0.14em] transition-colors duration-300 active:scale-95 ${
-        on ? 'border-forest-900 bg-forest-900 text-ivory' : 'border-forest-900/20 bg-white/60 text-forest-900 hover:border-forest-900/70 hover:bg-white'
+      disabled={none}
+      title={none ? 'No home fits this with the other filters' : undefined}
+      className={`label flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[max(0.54rem,8.5px)] tracking-[0.12em] transition-colors duration-300 enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 [@media(max-height:32rem)]:px-2.5 [@media(max-height:32rem)]:py-1 ${
+        on ? 'border-forest-900 bg-forest-900 text-ivory' : 'border-forest-900/18 bg-white/70 text-forest-900 enabled:hover:border-forest-900/60 enabled:hover:bg-white'
       }`}
     >
       {children}
-      <span className={`tabular-nums tracking-normal ${on ? 'text-gold-lit' : 'text-ink/45'}`}>{count}</span>
+      <span className={`tabular-nums tracking-normal ${on ? 'text-gold-lit' : 'text-ink/40'}`}>{count}</span>
     </button>
   )
 }
 
-// The round + / ✓ that puts a home in the comparison or takes it out.
-function AddButton({ unit, picked, full, onPick, className = '' }) {
-  const label = picked ? `Take ${unit.label} out of the comparison` : full ? 'Three homes are picked: take one out first' : `Add ${unit.label} to compare`
+function Facet({ label, children }) {
   return (
-    <button
-      onClick={onPick}
-      aria-pressed={picked}
-      aria-label={label}
-      title={label}
-      disabled={full && !picked}
-      className={`grid size-9 shrink-0 place-items-center rounded-full border transition-colors duration-300 enabled:active:scale-90 disabled:cursor-not-allowed disabled:opacity-30 ${
-        picked ? 'border-ember bg-ember text-white enabled:hover:bg-ember-deep' : 'border-forest-900/20 bg-white text-forest-900 enabled:hover:border-forest-900 enabled:hover:bg-forest-900 enabled:hover:text-ivory'
-      } ${className}`}
-    >
-      <Mark check={picked} className="size-3.5" />
-    </button>
+    <div role="group" aria-label={label} className="mt-[1.3vh] border-t border-forest-900/10 pt-[1.3vh]">
+      <p className="label mb-[0.9vh] text-[max(0.52rem,8.5px)] tracking-[0.18em] text-ink/50">{label}</p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
   )
 }
 
-// A home in the list: its plan, small, its name and size, and the + to compare it.
-function Row({ unit, on, picked, full, onShow, onPick }) {
+/*
+ * A two-handled slider for a range (the area, the floors), after Runwal Zenith's: two native sliders
+ * stacked over one drawn track, so both handles work by keyboard as well, the one nearer the pointer's
+ * end lying on top so neither buries the other at the ends.
+ */
+function Range({ label, value, min, max, step = 1, format = String, unit, note, onChange }) {
+  const [lo, hi] = value
+  const pct = (n) => ((n - min) / (max - min)) * 100
+  const mid = (min + max) / 2
   return (
-    <li className="shrink-0">
-      <div
-        className={`relative flex items-center gap-3 rounded-[0.9rem] p-1.5 pr-2 transition-[background-color,box-shadow] duration-300 ${
-          on ? 'bg-white shadow-[0_16px_34px_-24px_rgb(20_52_41/0.6)] ring-1 ring-forest-900/12' : 'hover:bg-white/55'
+    <div role="group" aria-label={label} className="mt-[1.3vh] border-t border-forest-900/10 pt-[1.3vh]">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="label text-[max(0.52rem,8.5px)] tracking-[0.18em] text-ink/50">{label}</p>
+        <p aria-live="polite" className="text-[max(0.76rem,11px)] tabular-nums text-forest-900">
+          {format(lo)} – {format(hi)} <span className="text-ink/45">{unit}</span>
+        </p>
+      </div>
+      <div className="relative mt-1 flex h-6 items-center">
+        <div className="absolute inset-x-0 h-[3px] rounded-full bg-forest-900/12" />
+        <div className="absolute h-[3px] rounded-full bg-ember" style={{ left: `${pct(lo)}%`, right: `${100 - pct(hi)}%` }} />
+        <input type="range" className="range-dual" aria-label={`${label}, from`} aria-valuetext={`${format(lo)} ${unit}`} min={min} max={max} step={step} value={lo} onChange={(e) => onChange([Math.min(Number(e.target.value), hi), hi])} style={{ zIndex: lo > mid ? 4 : 3 }} />
+        <input type="range" className="range-dual" aria-label={`${label}, to`} aria-valuetext={`${format(hi)} ${unit}`} min={min} max={max} step={step} value={hi} onChange={(e) => onChange([lo, Math.max(Number(e.target.value), lo)])} style={{ zIndex: hi < mid ? 4 : 3 }} />
+      </div>
+      {note && <p className="mt-0.5 text-[max(0.66rem,10px)] leading-snug text-ink/50">{note}</p>}
+    </div>
+  )
+}
+
+// The order the homes are listed in, as a small menu beside their count.
+function SortMenu({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const root = useRef(null)
+  const current = SORTS.find((s) => s.id === value) ?? SORTS[0]
+  useEffect(() => {
+    if (!open) return
+    const out = (e) => !root.current?.contains(e.target) && setOpen(false)
+    const key = (e) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setOpen(false)
+    }
+    document.addEventListener('pointerdown', out)
+    window.addEventListener('keydown', key, true)
+    return () => {
+      document.removeEventListener('pointerdown', out)
+      window.removeEventListener('keydown', key, true)
+    }
+  }, [open])
+  return (
+    <div ref={root} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`flex items-center gap-1.5 rounded-full border bg-white/70 px-3 py-1.5 text-[max(0.7rem,10.5px)] transition-colors duration-300 ${open ? 'border-ember text-forest-900' : 'border-forest-900/18 text-ink/70 hover:text-forest-900'}`}
+      >
+        <span className="text-ink/45">Sort</span>
+        <span className="max-w-36 truncate">{current.label}</span>
+        <svg viewBox="0 0 12 12" aria-hidden="true" className={`size-2.5 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>
+          <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <ul
+        role="listbox"
+        aria-label="Sort the homes"
+        className={`absolute right-0 z-30 mt-1.5 w-56 origin-top-right overflow-hidden rounded-xl bg-white py-1 shadow-[0_24px_48px_-20px_rgb(20_52_41/0.5)] ring-1 ring-forest-900/10 transition-[opacity,transform] duration-200 ${
+          open ? 'scale-100 opacity-100' : 'pointer-events-none -translate-y-1 scale-[0.98] opacity-0'
         }`}
       >
-        <span aria-hidden="true" className={`absolute inset-y-3 left-0 w-[3px] rounded-full bg-ember transition-transform duration-500 ${on ? 'scale-y-100' : 'scale-y-0'}`} />
-        <button onClick={onShow} aria-current={on || undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-[0.7rem] text-left outline-none focus-visible:ring-2 focus-visible:ring-ember">
-          <span className="grid h-[clamp(2rem,6vh,3.4rem)] w-[clamp(2.8rem,8vh,4.6rem)] shrink-0 place-items-center overflow-hidden rounded-lg bg-white ring-1 ring-forest-900/10">
-            <img src={unit.plan} alt="" draggable="false" className="max-h-full max-w-full object-contain p-1" />
-          </span>
-          <span className="min-w-0">
-            <span className={`block truncate font-display text-[clamp(1rem,2.2vh,1.3rem)] uppercase leading-tight tracking-[0.04em] transition-colors duration-300 ${on ? 'text-ember-deep' : 'text-forest-900'}`}>
-              {unit.label}
-            </span>
-            <span className="label mt-0.5 block truncate text-[max(0.52rem,8.5px)] tracking-[0.14em] text-ink/50">{configOf(unit).label}</span>
-          </span>
-        </button>
-        <AddButton unit={unit} picked={picked} full={full} onPick={onPick} />
-      </div>
-    </li>
-  )
-}
-
-function Arrow({ back = false, disabled, onClick }) {
-  const label = back ? 'The home before' : 'The next home'
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className="grid size-10 place-items-center rounded-full border border-forest-900/20 bg-white text-forest-900 transition-colors duration-300 hover:border-forest-900 hover:bg-forest-900 hover:text-ivory active:scale-95 disabled:pointer-events-none disabled:opacity-30 [@media(max-height:32rem)]:size-8"
-    >
-      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d={back ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
-      </svg>
-    </button>
+        {SORTS.map((s) => (
+          <li key={s.id}>
+            <button
+              role="option"
+              aria-selected={s.id === value}
+              tabIndex={open ? 0 : -1}
+              onClick={() => {
+                onChange(s.id)
+                setOpen(false)
+              }}
+              className={`flex w-full items-center justify-between gap-3 px-3.5 py-2 text-left text-[max(0.76rem,11px)] transition-colors duration-150 ${s.id === value ? 'bg-forest-900/5 text-forest-900' : 'text-ink/70 hover:bg-forest-900/4 hover:text-forest-900'}`}
+            >
+              {s.label}
+              {s.id === value && <span className="size-1.5 rounded-full bg-ember" />}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
 // The homes picked to compare, and the way on once there are two.
-function Tray({ picked, onRemove, onCompare, className = '' }) {
+function CompareBox({ picked, onRemove, onClear, onCompare, className = '' }) {
   const units = picked.map((id) => UNITS.find((u) => u.id === id))
-  const ready = picked.length >= 2
   return (
-    <div role="region" aria-label="Homes to compare" className={`rounded-[1.1rem] bg-white p-[clamp(0.4rem,1.4vh,0.9rem)] shadow-[0_24px_50px_-30px_rgb(20_52_41/0.6)] ring-1 ring-forest-900/10 ${className}`}>
-      <div className="flex items-center justify-between gap-3 [@media(max-height:32rem)]:hidden">
-        <p className="label text-[max(0.56rem,8.5px)] tracking-[0.16em] text-forest-900">Compare</p>
-        <p aria-live="polite" className="label text-[max(0.52rem,8.5px)] tracking-[0.14em] text-ink/45">
-          {picked.length} of {MOST_COMPARED}
+    <div role="region" aria-label="Homes to compare" className={`rounded-[1.1rem] bg-ember/[0.07] p-[clamp(0.6rem,1.6vh,1rem)] ring-1 ring-ember/30 short:bg-transparent short:p-0 short:ring-0 ${className}`}>
+      <div className="flex items-center justify-between gap-3 short:hidden">
+        <p aria-live="polite" className="label text-[max(0.56rem,8.5px)] tracking-[0.16em] text-forest-900">
+          Compare <span className="text-ember-deep">({picked.length}/{MOST_COMPARED})</span>
         </p>
+        {picked.length > 0 && (
+          <button onClick={onClear} className="text-[max(0.68rem,10px)] text-ink/55 underline underline-offset-4 transition-colors hover:text-forest-900">
+            Clear
+          </button>
+        )}
       </div>
       {units.length ? (
-        <ol className="mt-2 flex flex-wrap gap-1.5 [@media(max-height:32rem)]:hidden">
+        <ul className="mt-[1vh] flex flex-wrap gap-1.5 short:hidden">
           {units.map((u) => (
-            <li key={u.id} className="flex items-center gap-0.5 rounded-full bg-forest-900 py-0.5 pl-3 pr-0.5 text-ivory">
-              <span className="label text-[max(0.52rem,8.5px)] tracking-[0.12em]">{u.label}</span>
-              <button onClick={() => onRemove(u.id)} aria-label={`Take ${u.label} out of the comparison`} title="Take out" className="grid size-6 place-items-center rounded-full transition-colors duration-300 hover:bg-ivory/20">
+            <li key={u.id} className="flex items-center gap-0.5 rounded-full bg-white py-0.5 pl-3 pr-0.5 text-forest-900 ring-1 ring-forest-900/15">
+              <span className="text-[max(0.7rem,10.5px)]">{u.label}</span>
+              <button onClick={() => onRemove(u.id)} aria-label={`Take ${u.label} out of the comparison`} title="Take out" className="grid size-6 place-items-center rounded-full transition-colors duration-300 hover:bg-forest-900/10">
                 <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>
             </li>
           ))}
-        </ol>
+        </ul>
       ) : (
-        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[clamp(0.72rem,1.4vh,0.85rem)] [@media(max-height:32rem)]:hidden leading-snug text-ink/55">
-          Tap
-          <span className="inline-grid size-5 place-items-center rounded-full border border-forest-900/25">
-            <Mark className="size-2.5" />
-          </span>
-          on two or three homes
-        </p>
+        <p className="mt-[0.8vh] text-[max(0.72rem,10.5px)] leading-snug text-ink/55 short:hidden">Tick up to three homes to set them side by side.</p>
       )}
-      <Pill tone="solid" onClick={onCompare} disabled={!ready} className="mt-2 w-full py-2.5 [@media(max-height:32rem)]:mt-0 [@media(max-height:32rem)]:py-2">
-        {ready ? `Compare ${picked.length} homes` : `Compare · ${picked.length} of ${MOST_COMPARED}`}
-        {ready && <span aria-hidden="true">→</span>}
+      <Pill tone="solid" onClick={onCompare} disabled={picked.length < 2} className="mt-[1.2vh] w-full py-2.5 short:mt-0 short:py-2">
+        {picked.length < 2 ? `Pick ${2 - picked.length} more` : 'Compare now'}
+        <span className="hidden short:inline">· {picked.length}/{MOST_COMPARED}</span>
+        {picked.length >= 2 && <span aria-hidden="true">→</span>}
       </Pill>
     </div>
   )
 }
 
+// A home as a plan card: the tick to compare it, its drawing (which opens it large) and what it is.
+function HomeCard({ unit, picked, full, onPick, onOpen }) {
+  const label = picked ? `Take ${unit.label} out of the comparison` : full ? 'Three homes are picked: take one out first' : `Add ${unit.label} to compare`
+  return (
+    <article data-card className={`group relative flex flex-col overflow-hidden rounded-[1.1rem] bg-white ring-1 transition-[box-shadow] duration-300 ${picked ? 'ring-2 ring-ember' : 'ring-forest-900/10 hover:shadow-[0_26px_50px_-30px_rgb(20_52_41/0.55)] hover:ring-forest-900/25'}`}>
+      <button
+        onClick={onPick}
+        aria-pressed={picked}
+        aria-label={label}
+        title={label}
+        disabled={full && !picked}
+        className={`absolute left-2.5 top-2.5 z-10 grid size-8 place-items-center rounded-lg border transition-colors duration-300 enabled:active:scale-90 disabled:cursor-not-allowed disabled:opacity-35 ${
+          picked ? 'border-ember bg-ember text-white' : 'border-forest-900/25 bg-white/95 text-transparent enabled:hover:border-forest-900 enabled:hover:text-forest-900/40'
+        }`}
+      >
+        <Mark check className="size-4" />
+      </button>
+
+      <button onClick={onOpen} aria-label={`Open ${unit.label}'s plan`} className="relative block aspect-[4/3] w-full overflow-hidden bg-white outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ember [@media(max-height:32rem)]:aspect-[16/9]">
+        <img src={unit.plan} alt={`${unit.label}, ${configOf(unit).label}, floor plan`} loading="lazy" draggable="false" className="size-full object-contain p-[clamp(0.6rem,1.6vh,1.1rem)] transition-transform duration-500 group-hover:scale-[1.03]" />
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 grid place-items-center bg-forest-950/0 opacity-0 transition-all duration-300 group-hover:bg-forest-950/15 group-hover:opacity-100">
+          <span className="grid size-10 place-items-center rounded-full bg-white text-forest-900 shadow-[0_10px_24px_-10px_rgb(0_0_0/0.5)]">
+            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="M20 20l-4.35-4.35M11 8.5v5M8.5 11h5" />
+            </svg>
+          </span>
+        </span>
+      </button>
+
+      <div className="flex flex-1 items-end justify-between gap-3 border-t border-forest-900/10 px-[clamp(0.75rem,1.2vw,1.1rem)] py-[clamp(0.55rem,1.4vh,0.9rem)]">
+        <div className="min-w-0">
+          <p className="flex items-baseline gap-2">
+            <span className="display truncate text-[clamp(1.05rem,2.4vh,1.45rem)] text-forest-900">{unit.label}</span>
+            <span className="label shrink-0 text-[max(0.52rem,8.5px)] tracking-[0.12em] text-ember-deep">{configOf(unit).label}</span>
+          </p>
+          <p className="mt-0.5 truncate text-[max(0.7rem,10.5px)] text-ink/55">
+            <span className="text-forest-900">
+              {sqft(areaOf(unit))} {AREA.unit}
+            </span>{' '}
+            · {roomsLine(unit)}
+          </p>
+        </div>
+        <KeyPlan lit={unit.flats} label={where(unit)} className="h-[clamp(1.8rem,4.4vh,2.6rem)] w-auto shrink-0 [@media(max-height:32rem)]:hidden" />
+      </div>
+    </article>
+  )
+}
+
 /**
- * Unit Comparison's first step, laid out as the Rustomjee app lays out its floors: every home in a list
- * down the left (grouped by bedrooms, with a filter for them above), and the one picked large beside
- * it, its plan to zoom into, where it sits on the floor and its rooms. Any home is one tap away, the
- * arrows step through them, and the + on each puts it in the comparison below the list.
+ * Unit Comparison's first step, as Runwal Zenith's "Search by unit": the filters down the left (with a
+ * count and a sort, each chip saying how many homes it leaves, the flats on the key plan, a reset), the
+ * homes to compare below them, and every home the filters leave as a plan card beside them. A card's
+ * drawing opens it large; its tick puts it in the comparison, which opens over the finder.
  */
 export default function UnitFinder() {
   const root = useRef(null)
-  const list = useRef(null)
+  const grid = useRef(null)
   const { go } = useNav()
-  const [kind, setKind] = useState(() => finder.configs[0] ?? 0)
+  const [filters, setFilters] = useState(finder.filters)
   const [picked, setPicked] = useState(finder.picked)
-  const [current, setCurrent] = useState(() => finder.current ?? ORDERED[0].id)
-  const [sheet, setSheet] = useState(false)
+  const [sheet, setSheet] = useState(null)
+  const [comparing, setComparing] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
   useIntro(root)
 
-  const results = ofKind(kind)
-  // a filter that leaves the home on show out shows its first home instead
-  const unit = results.find((u) => u.id === current) ?? results[0]
-  const index = results.indexOf(unit)
-  const added = picked.includes(unit.id)
+  const results = filterHomes(filters)
   const full = picked.length >= MOST_COMPARED
+  const active = filtersOn(filters)
+  const [floorLo, floorHi] = filters.floors
   const pick = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < MOST_COMPARED ? [...p, id] : p))
-  const compare = () => go('residences', compareQuery(homesOf(picked)))
-  const step = (by) => setCurrent(results[index + by].id)
-  // with every home listed, they're grouped by their bedrooms
-  const groups = CONFIGS.map((c) => [c, results.filter((u) => bedroomsOf(u) === c.id)]).filter(([, homes]) => homes.length)
+  const toggle = (key, value) => setFilters((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value] }))
+  const reset = () => setFilters((f) => ({ ...NO_FILTERS, sort: f.sort }))
+  const shown = results.map((u) => u.id).join()
 
   // the plans are a tap away, and what was set here stays for coming back
   useEffect(() => {
     decodeImages(UNITS.map((u) => u.plan))
   }, [])
   useEffect(() => {
-    Object.assign(finder, { configs: kind ? [kind] : [], picked, current: unit.id })
-  }, [kind, picked, unit.id])
-  // the home on show stays in sight in the list (scrolling the list only, not the page)
-  useEffect(() => {
-    const box = list.current
-    const row = box?.querySelector('[aria-current]')?.closest('li')
-    if (!row) return
-    const b = box.getBoundingClientRect()
-    const r = row.getBoundingClientRect()
-    const dx = r.left < b.left ? r.left - b.left - 12 : r.right > b.right ? r.right - b.right + 12 : 0
-    const dy = r.top < b.top ? r.top - b.top - 8 : r.bottom > b.bottom ? r.bottom - b.bottom + 8 : 0
-    if (dx || dy) box.scrollBy({ left: dx, top: dy, behavior: 'smooth' })
-  }, [unit.id])
+    Object.assign(finder, { filters, picked })
+  }, [filters, picked])
+
+  // a change of filters or order settles the cards in again
+  const first = useRef(true)
+  useGSAP(
+    () => {
+      if (first.current) {
+        first.current = false
+        return
+      }
+      if (reduced()) return
+      gsap.fromTo('[data-card]', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.55, stagger: 0.035, ease: 'power3.out', overwrite: true })
+    },
+    { scope: grid, dependencies: [shown] },
+  )
+
+  const filtersPanel = (
+    <div className="rounded-[1.1rem] bg-white/70 p-[clamp(0.7rem,1.8vh,1.1rem)] ring-1 ring-forest-900/10">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="label text-[max(0.56rem,8.5px)] tracking-[0.16em] text-ink/55">
+          {results.length} {results.length === 1 ? 'home' : 'homes'}
+        </p>
+        <SortMenu value={filters.sort} onChange={(sort) => setFilters((f) => ({ ...f, sort }))} />
+      </div>
+      {CHIPS.map((facet, i) => [
+        <Facet key={facet.key} label={facet.label}>
+          {facet.options.map((o) => (
+            <Chip key={o.id} on={filters[facet.key].includes(o.id)} count={countWith(filters, facet, o.id)} onClick={() => toggle(facet.key, o.id)}>
+              {o.label}
+            </Chip>
+          ))}
+        </Facet>,
+        // the two sliders come after the bedrooms, as Zenith's area does
+        i === 0 && [
+          <Range key="area" label={AREA.label} value={filters.area} min={AREA.min} max={AREA.max} step={10} format={sqft} unit="sq ft" note={AREA.note} onChange={(area) => setFilters((f) => ({ ...f, area }))} />,
+          <Range
+            key="floors"
+            label="Floors"
+            value={filters.floors}
+            min={FLOOR_RANGE.min}
+            max={FLOOR_RANGE.max}
+            unit=""
+            note={`Every home is on each floor from ${FLOOR_RANGE.min} to ${FLOOR_RANGE.max}; the floors set the height their views are compared from.`}
+            onChange={(floors) => setFilters((f) => ({ ...f, floors }))}
+          />,
+        ],
+      ])}
+      <div className="mt-[1.3vh] border-t border-forest-900/10 pt-[1.3vh]">
+        <p className="label mb-[0.9vh] text-[max(0.52rem,8.5px)] tracking-[0.18em] text-ink/50">{FLATS.label}</p>
+        <div className="flex items-center gap-3">
+          <KeyPlan
+            lit={filters.flats}
+            dim={FLATS.options.filter((o) => !filters.flats.includes(o.id) && countWith(filters, FLATS, o.id) === 0).map((o) => o.id)}
+            onPick={(n) => toggle('flats', n)}
+            label="Pick flats on the floor"
+            className="h-[clamp(3.6rem,9vh,5.4rem)] w-auto shrink-0"
+          />
+          <p className="text-[max(0.7rem,10.5px)] leading-snug text-ink/55">Tap a flat to see the homes there: a jodi takes up two.</p>
+        </div>
+      </div>
+      <button onClick={reset} disabled={!filtering(filters)} className="group mt-[1.4vh] flex items-center gap-2 text-[max(0.7rem,10.5px)] text-ink/55 transition-colors duration-300 hover:text-forest-900 disabled:pointer-events-none disabled:opacity-35">
+        <span className="inline-block h-px w-4 bg-current transition-all duration-300 group-hover:w-7" />
+        Reset filters
+      </button>
+      <Pill tone="solid" onClick={() => setShowFilters(false)} className="mt-3 hidden w-full py-2.5 short:flex">
+        Show {results.length} {results.length === 1 ? 'home' : 'homes'}
+      </Pill>
+    </div>
+  )
 
   return (
-    <section ref={root} className="screen bg-paper text-forest-900 [--list-w:clamp(17rem,24vw,26rem)] sideways:[--list-w:clamp(13rem,32vw,16rem)]">
+    <section ref={root} className="screen bg-paper text-forest-900 [--side-w:clamp(17rem,25vw,24rem)] sideways:[--side-w:clamp(14rem,34vw,17rem)]">
       <Botanical kind="fern" seed={21} depth={14} className="bottom-(--chrome-bot) left-0 w-[10vw] text-forest-700/10" />
 
       <div className="safe pane h-full">
-        {/* landscape: the list down the left, the home beside it; upright, the list is a strip above it */}
-        <div className="flex min-h-full flex-col gap-[clamp(0.8rem,2vh,1.4rem)] landscape:grid landscape:h-full landscape:grid-cols-[var(--list-w)_minmax(0,1fr)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-[2vw]">
+        {/* landscape: the filters down the left, the homes beside them; upright, one after the other */}
+        <div className="flex min-h-full flex-col gap-[clamp(0.8rem,2vh,1.4rem)] landscape:grid landscape:h-full landscape:grid-cols-[var(--side-w)_minmax(0,1fr)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-[2.4vw]">
           {/* the two ways in, at the top, just under the sound switch */}
           <div data-in className="w-[min(100%,22rem)] landscape:w-full">
             <ModeSwitch />
           </div>
 
-          <aside className="flex min-h-0 flex-col landscape:col-start-1 landscape:row-start-2">
-            <div data-in className="[@media(max-height:32rem)]:hidden">
-              <p className="label text-[max(0.56rem,8.5px)] tracking-[0.18em] text-ember-deep">
-                {ALL_TOWERS} · Floors {HOME_FLOORS}
-              </p>
-              <h2 className="display mt-1.5 text-[clamp(1.6rem,3.6vh,2.6rem)] text-forest-800">Find your residence</h2>
-            </div>
-
-            {/* the bedrooms: one row, which scrolls sideways where it doesn't fit */}
+          <aside className="flex min-h-0 flex-col gap-[1.4vh] landscape:col-start-1 landscape:row-start-2 landscape:mb-[calc(var(--watermark-h)+0.75rem)]">
+            {/* upright, the filters fold away behind a button */}
+            <button
+              data-in
+              onClick={() => setShowFilters((s) => !s)}
+              aria-expanded={showFilters}
+              className="label hidden shrink-0 items-center justify-between rounded-full border border-forest-900/18 bg-white/70 px-4 py-2.5 text-[max(0.6rem,9px)] tracking-[0.16em] portrait:flex roomy:hidden short:flex short:py-2"
+            >
+              <span>
+                Filters{active > 0 && <span className="ml-2 text-ember-deep">· {active}</span>}
+              </span>
+              <span className="text-ink/55">
+                {results.length} {results.length === 1 ? 'home' : 'homes'} {showFilters ? '▴' : '▾'}
+              </span>
+            </button>
+            {showFilters && <div aria-hidden="true" onClick={() => setShowFilters(false)} className="fixed inset-0 z-10 hidden short:block" />}
             <div
               data-in
-              role="group"
-              aria-label="Bedrooms"
-              className="-mx-(--gutter) mt-[1.8vh] flex shrink-0 gap-1.5 overflow-x-auto px-(--gutter) pb-1 [scrollbar-width:none] landscape:mx-0 landscape:flex-wrap landscape:overflow-visible landscape:px-0 [@media(max-height:32rem)]:mt-0 [@media(max-height:32rem)]:flex-nowrap [@media(max-height:32rem)]:overflow-x-auto"
+              className={`paper-scrollbar min-h-0 landscape:-mr-1.5 landscape:flex-1 landscape:overflow-y-auto landscape:pr-1.5 ${
+                showFilters
+                  ? 'short:fixed short:bottom-[calc(var(--chrome-bot)+0.5rem)] short:left-(--gutter) short:top-(--chrome-top) short:z-20 short:mr-0 short:w-[min(25rem,62vw)] short:rounded-[1.1rem] short:bg-paper short:pr-0 short:shadow-[0_40px_80px_-30px_rgb(0_0_0/0.55)]'
+                  : 'portrait:hidden roomy:block short:hidden'
+              }`}
             >
-              {KINDS.map((k) => (
-                <Kind key={k.id} on={kind === k.id} count={ofKind(k.id).length} onClick={() => setKind(k.id)}>
-                  {k.label}
-                </Kind>
-              ))}
+              {filtersPanel}
             </div>
-
-            {/* every home the filter leaves, grouped by bedrooms; upright, a strip that scrolls sideways */}
-            <nav
-              ref={list}
-              data-in
-              aria-label="Homes"
-              className="paper-scrollbar -mx-(--gutter) mt-[1.4vh] shrink-0 overflow-x-auto px-(--gutter) pb-1 [scrollbar-width:none] landscape:mx-0 landscape:min-h-0 landscape:flex-1 landscape:shrink landscape:overflow-x-hidden landscape:overflow-y-auto landscape:px-0 landscape:pr-1.5 landscape:[scrollbar-width:thin]"
-            >
-              <div className="flex gap-4 landscape:block">
-                {groups.map(([config, homes]) => (
-                  <section key={config.id} aria-label={config.label} className="shrink-0 landscape:mb-[1.4vh]">
-                    <p className="label mb-1.5 hidden items-center gap-2 text-[max(0.52rem,8.5px)] tracking-[0.18em] text-ink/45 landscape:flex">
-                      {config.label}
-                      <span className="h-px flex-1 bg-forest-900/10" />
-                      <span className="tabular-nums">{homes.length}</span>
-                    </p>
-                    <ul className="flex gap-1.5 landscape:block landscape:space-y-1">
-                      {homes.map((u) => (
-                        <Row key={u.id} unit={u} on={u === unit} picked={picked.includes(u.id)} full={full} onShow={() => setCurrent(u.id)} onPick={() => pick(u.id)} />
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-            </nav>
-
-            <Tray picked={picked} onRemove={pick} onCompare={compare} className="mt-[1.4vh] hidden shrink-0 landscape:block" />
+            <CompareBox picked={picked} onRemove={pick} onClear={() => setPicked([])} onCompare={() => setComparing(true)} className="hidden shrink-0 landscape:block" />
           </aside>
 
-          {/* the home on show, large */}
-          <div
-            data-fade
-            className="relative flex min-h-[26rem] landscape:mb-[calc(var(--watermark-h)+0.75rem)] flex-1 flex-col overflow-hidden rounded-[1.25rem] bg-white shadow-[0_40px_80px_-48px_rgb(20_52_41/0.55)] ring-1 ring-forest-900/10 landscape:col-start-2 landscape:row-span-2 landscape:row-start-1 landscape:min-h-0"
-          >
-            <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-[clamp(1rem,1.8vw,1.75rem)] pt-[clamp(0.6rem,2vh,1.4rem)]">
-              <Swap id={unit.id} className="min-w-0">
-                <p data-swap className="label truncate text-[max(0.58rem,9px)] tracking-[0.16em] text-ember-deep">
-                  {configOf(unit).label} · {where(unit)}
+          {/* every home the filters leave */}
+          <div className="flex min-h-0 flex-col landscape:col-start-2 landscape:row-span-2 landscape:row-start-1">
+            <header data-in className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+              <div className="min-w-0">
+                <p className="label flex items-center gap-2 text-[max(0.56rem,8.5px)] tracking-[0.18em] text-ember-deep short:hidden before:h-px before:w-4 before:bg-ember before:content-['']">
+                  Search by unit · {ALL_TOWERS} · {floorLo === floorHi ? `Floor ${floorLo}` : `Floors ${floorLo}–${floorHi}`}
                 </p>
-                <h3 data-swap className="display mt-1 truncate text-[clamp(1.4rem,4.4vh,3.1rem)] text-forest-800">
-                  {unit.label}
-                </h3>
-              </Swap>
-              <div className="flex items-center gap-2">
-                <p className="label mr-1.5 text-[max(0.58rem,9px)] tracking-[0.18em] text-ink/50">
-                  <span className="text-forest-900">{two(index + 1)}</span> / {two(results.length)}
-                </p>
-                <Arrow back disabled={index <= 0} onClick={() => step(-1)} />
-                <Arrow disabled={index >= results.length - 1} onClick={() => step(1)} />
+                <h2 className="display mt-1 text-[clamp(1.7rem,4.6vh,3.1rem)] text-forest-800">
+                  {results.length} {results.length === 1 ? 'residence' : 'residences'}
+                </h2>
               </div>
+              <Pill tone={picked.length >= 2 ? 'solid' : 'line'} onClick={() => setComparing(true)} disabled={picked.length < 2} className="py-2.5">
+                Compare {picked.length}/{MOST_COMPARED}
+              </Pill>
             </header>
 
-            <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_clamp(15rem,20vw,23rem)]">
-              <div className="relative min-h-[14rem] landscape:min-h-0">
-                <ZoomPan key={unit.id} src={unit.plan} alt={`${unit.label}, ${configOf(unit).label}, floor plan`} aspect={unit.aspect} className="absolute inset-0" />
-              </div>
-
-              {/* wide screens: where it sits, its rooms and the way to compare it, beside the plan */}
-              <div className="hidden min-h-0 flex-col border-l border-forest-900/10 p-[clamp(1rem,2vh,1.5rem)] lg:flex">
-                <div className="flex shrink-0 items-center gap-4">
-                  <KeyPlan lit={unit.flats} label={`${unit.label} on the floor`} className="h-[clamp(3.5rem,9vh,5.5rem)] w-auto shrink-0" />
-                  <p className="text-[clamp(0.78rem,1.5vh,0.92rem)] leading-snug text-ink/70">{roomsLine(unit)}</p>
+            <div ref={grid} className="paper-scrollbar mt-[1.8vh] min-h-0 flex-1 landscape:-mr-2 landscape:overflow-y-auto landscape:pr-2">
+              {results.length ? (
+                <div className="grid grid-cols-1 gap-[clamp(0.7rem,1.2vw,1.1rem)] pb-[calc(var(--watermark-h)+0.75rem)] roomy:grid-cols-2 sideways:grid-cols-2 lg:grid-cols-3">
+                  {results.map((u) => (
+                    <HomeCard key={u.id} unit={u} picked={picked.includes(u.id)} full={full} onPick={() => pick(u.id)} onOpen={() => setSheet(u)} />
+                  ))}
                 </div>
-                <div tabIndex={0} role="region" aria-label="Room sizes" className="more-below paper-scrollbar mt-[2vh] min-h-0 flex-1 overflow-y-auto pr-2">
-                  <dl className="text-[clamp(0.78rem,1.5vh,0.92rem)]">
-                    {unit.rooms.map(([name, size]) => (
-                      <div key={name} className="flex justify-between gap-3 border-t border-forest-900/10 py-[0.6vh] first:border-t-0">
-                        <dt className="text-ink/70">{name}</dt>
-                        <dd className="whitespace-pre-line text-right">{size}</dd>
-                      </div>
-                    ))}
-                  </dl>
+              ) : (
+                <div className="grid min-h-[14rem] place-items-center rounded-[1.1rem] bg-white/60 p-8 text-center ring-1 ring-forest-900/10 landscape:h-[calc(100%-var(--watermark-h)-0.75rem)]">
+                  <div>
+                    <p className="text-[max(0.85rem,12px)] text-ink/60">No home fits all of these filters.</p>
+                    <button onClick={reset} className="mt-2 text-[max(0.8rem,11.5px)] text-forest-900 underline underline-offset-4">
+                      Reset filters
+                    </button>
+                  </div>
                 </div>
-                <Pill tone={added ? 'on' : 'line'} onClick={() => pick(unit.id)} disabled={full && !added} aria-pressed={added} className="mt-[2vh] w-full shrink-0">
-                  <Mark check={added} />
-                  {added ? 'Added to compare' : full ? 'Three already picked' : 'Add to compare'}
-                </Pill>
-              </div>
-            </div>
-
-            {/* smaller screens: its rooms open in a sheet */}
-            <div className="flex items-center gap-2 border-t border-forest-900/10 p-2.5 lg:hidden">
-              <p className="min-w-0 flex-1 truncate pl-1.5 text-[max(0.72rem,11px)] text-ink/65">{roomsLine(unit)}</p>
-              <Pill onClick={() => setSheet(true)} className="px-4 py-2.5">
-                Rooms
-              </Pill>
-              <AddButton unit={unit} picked={added} full={full} onPick={() => pick(unit.id)} className="size-10" />
+              )}
             </div>
           </div>
 
           {/* upright, the comparison comes last */}
-          <Tray picked={picked} onRemove={pick} onCompare={compare} className="mb-[calc(var(--watermark-h)+0.75rem)] landscape:hidden" />
+          <CompareBox picked={picked} onRemove={pick} onClear={() => setPicked([])} onCompare={() => setComparing(true)} className="mb-[calc(var(--watermark-h)+0.75rem)] landscape:hidden" />
         </div>
       </div>
 
-      {sheet && <PlanSheet unit={unit} picked={added} canPick={!full} onPick={() => pick(unit.id)} onClose={() => setSheet(false)} />}
+      {comparing && (
+        <CompareSheet
+          ids={picked}
+          paused={!!sheet}
+          onRemove={pick}
+          onOpen={setSheet}
+          onViews={() => go('residences', compareQuery(homesOf(picked, filters.floors), true))}
+          onClose={() => setComparing(false)}
+        />
+      )}
+      {sheet && <PlanSheet unit={sheet} picked={picked.includes(sheet.id)} canPick={!full} onPick={() => pick(sheet.id)} onClose={() => setSheet(null)} />}
     </section>
   )
 }

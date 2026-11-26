@@ -195,9 +195,9 @@ function Landscape() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_55%,#4d8070,transparent_60%),radial-gradient(ellipse_at_92%_100%,#173b30,transparent_50%)]" />
       <img src={l.texture} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40 mix-blend-soft-light" />
       <Botanical kind="star" seed={9} depth={12} className="bottom-0 right-[2%] w-[44%] text-forest-400/55" />
-      <div className="safe pane relative grid h-full items-center gap-[4vh] [align-content:safe_center] landscape:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] landscape:gap-[4vw] lg:pl-[8vw]">
+      <div className="safe pane relative grid h-full grid-cols-[minmax(0,1fr)] items-center gap-[4vh] [align-content:safe_center] landscape:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] landscape:gap-[4vw] lg:pl-[8vw]">
         <div className="max-w-[38rem]">
-          <h2 data-in className="display text-[clamp(2rem,6vh,4.6rem)] font-normal leading-[1.02]">
+          <h2 data-in className="display text-[clamp(1.6rem,min(6vh,8.6vw),4.6rem)] font-normal leading-[1.02]">
             {l.title.map((t) => (
               <span key={t} className="block">{t}</span>
             ))}
