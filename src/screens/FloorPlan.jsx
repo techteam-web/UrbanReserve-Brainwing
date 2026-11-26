@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
 import { useIntro } from '../hooks/useIntro'
+import { useScrub } from '../hooks/useScrub'
 import { useNav } from '../app/nav'
 import { facingOf, FLOOR_PLANS, floorName, MOST_COMPARED, TOWERS, unitOf, viewFloor } from '../data/content'
 import { finder } from '../data/finder'
@@ -70,6 +71,16 @@ function TowerPicker({ tower, floor, onPick, onBack, className = '' }) {
     return () => ro.disconnect()
   }, [L, T, R, B])
 
+  // a finger run down the tower shows each floor's number as it passes, and opens the one let go on
+  // (landscape, where the tower stands beside the plan; upright, the page scrolls past it and a tap
+  // picks)
+  const scrub = useScrub({
+    onOver: setHover,
+    onPick: (n) => {
+      setHover(null)
+      if (n !== floor.n) onPick(n)
+    },
+  })
   const index = tower.floors.indexOf(floor)
   const onKey = (e) => {
     const to = {
@@ -100,7 +111,7 @@ function TowerPicker({ tower, floor, onPick, onBack, className = '' }) {
         <svg
           viewBox={`${cut.x} ${cut.y} ${cut.w} ${cut.h}`}
           preserveAspectRatio="xMidYMid slice"
-          className="absolute inset-0 size-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-lit"
+          className="absolute inset-0 size-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-lit landscape:touch-none"
           role="slider"
           tabIndex={0}
           aria-label={`Floor of ${tower.label}`}
@@ -109,7 +120,8 @@ function TowerPicker({ tower, floor, onPick, onBack, className = '' }) {
           aria-valuenow={floor.n}
           aria-valuetext={floorName(floor.n)}
           onKeyDown={onKey}
-          onPointerLeave={() => setHover(null)}
+          onPointerLeave={(e) => e.pointerType === 'mouse' && setHover(null)}
+          {...scrub}
         >
           <image href={BUILDING.image} width={BUILDING.width} height={BUILDING.height} preserveAspectRatio="none" />
           {tower.floors.map((f) => {
@@ -119,8 +131,9 @@ function TowerPicker({ tower, floor, onPick, onBack, className = '' }) {
               <polygon
                 key={f.n}
                 points={f.points}
+                data-floor={f.n}
                 vectorEffect="non-scaling-stroke"
-                onPointerEnter={() => setHover(f.n)}
+                onPointerEnter={(e) => e.pointerType === 'mouse' && setHover(f.n)}
                 onClick={() => !on && onPick(f.n)}
                 className={`transition-[fill,stroke] duration-300 ${on ? 'fill-ember/85 stroke-white stroke-[1.5]' : lit ? 'cursor-pointer fill-ivory/45 stroke-gold-lit stroke-[1.5]' : 'cursor-pointer fill-transparent stroke-transparent'}`}
               />

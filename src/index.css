@@ -7,6 +7,8 @@
 /* Phones on their side (and small landscape windows): too short for the stacked layout, so some screens
    lay out side by side here too. */
 @custom-variant sideways (@media (width < 64rem) and (orientation: landscape));
+/* a phone on its side: too short for a column of filters */
+@custom-variant short (@media (height <= 32rem) and (orientation: landscape));
 
 @theme {
   --color-forest-950: #0d231d;
@@ -91,6 +93,26 @@
   }
   button {
     cursor: pointer;
+  }
+  /* touch: a double tap never zooms (and a tap needn't wait to see if one is coming), a long press
+     on a picture brings up no menu, and pressing to drag doesn't select the words under it; what a
+     finger may move at all is src/app/touch.js's to say */
+  :where(*) {
+    touch-action: manipulation;
+  }
+  body {
+    -webkit-touch-callout: none;
+  }
+  @media (pointer: coarse) {
+    body {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    input,
+    textarea {
+      -webkit-user-select: text;
+      user-select: text;
+    }
   }
   img {
     -webkit-user-drag: none;
@@ -422,4 +444,49 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .spot-pulse { animation: none; opacity: 0.5; }
+}
+
+/* The unit finder's two-handled sliders (after Runwal Zenith's): two native range inputs over one drawn
+   track, only their handles taking the pointer. */
+.range-dual {
+  position: absolute;
+  inset-inline: 0;
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  pointer-events: none;
+}
+.range-dual:focus { outline: none; }
+.range-dual::-webkit-slider-runnable-track { height: 1.5rem; background: transparent; }
+.range-dual::-moz-range-track { height: 1.5rem; background: transparent; }
+.range-dual::-webkit-slider-thumb {
+  appearance: none;
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  border-radius: 9999px;
+  border: 2px solid var(--color-ember);
+  background: var(--color-ivory);
+  box-shadow: 0 2px 6px rgb(20 52 41 / 0.25);
+  cursor: grab;
+}
+.range-dual::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  border: 2px solid var(--color-ember);
+  background: var(--color-ivory);
+  box-shadow: 0 2px 6px rgb(20 52 41 / 0.25);
+  cursor: grab;
+}
+.range-dual:active::-webkit-slider-thumb { cursor: grabbing; }
+.range-dual:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgb(236 102 38 / 0.3); }
+.range-dual:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 4px rgb(236 102 38 / 0.3); }
+@media (pointer: coarse) {
+  .range-dual::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: 0; }
+  .range-dual::-moz-range-thumb { width: 20px; height: 20px; }
 }

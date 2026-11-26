@@ -247,7 +247,7 @@ function Spot({ photo, onOpen }) {
       aria-label={`See the ${photo.label.toLowerCase()}`}
     >
       <Dot className="size-full" />
-      <span className="label pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 -translate-y-1 whitespace-nowrap rounded-full bg-forest-950/85 px-2.5 py-1 text-[max(0.58rem,9px)] text-ivory opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+      <span className={`label pointer-events-none absolute bottom-full mb-1.5 -translate-y-1 ${x > 72 ? 'right-0' : x < 28 ? 'left-0' : 'left-1/2 -translate-x-1/2'} whitespace-nowrap rounded-full bg-forest-950/85 px-2.5 py-1 text-[max(0.58rem,9px)] text-ivory opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 roomy:pointer-coarse:translate-y-0 roomy:pointer-coarse:opacity-100 lg:pointer-coarse:translate-y-0 lg:pointer-coarse:opacity-100`}>
         {photo.label}
       </span>
     </button>
