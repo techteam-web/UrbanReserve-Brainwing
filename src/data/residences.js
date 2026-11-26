@@ -1,5 +1,5 @@
 import BUILDING_FLOORS from './building-floors.svg?raw'
-import { FLOOR_PLANS, LANDING, TOWERS } from './content.js'
+import { FLOOR_PLANS, LANDING, ON_SALE, TOWERS } from './content.js'
 
 /*
  * The towers as they stand in the forest, for Residences' Visual Selection. The picture is Home's,
@@ -48,11 +48,14 @@ if (BUILDING.towers.length !== TOWERS.length || !(width > 0 && height > 0))
 for (const { label, floors } of BUILDING.towers)
   if (floors.some((f, i) => f.n !== floors[0].n + i)) console.warn(`src/data/building-floors.svg: ${label} skips or repeats a floor`)
 
-// The floor a visual selection has open (?tower=towerA&floor=23, with &flat=3 once a home on it is
-// picked), or null while it shows the towers.
+// The tower on offer, as traced: the only one whose floors Residences opens.
+export const SALE_TOWER = BUILDING.towers.find((t) => t.id === ON_SALE)
+
+// The floor a visual selection has open (?tower=towerB&floor=23, with &flat=3 once a home on it is
+// picked), or null while it shows the towers. Only the tower on offer has floors to open.
 export function pickedFloor(search) {
   const q = new URLSearchParams(search)
-  const tower = BUILDING.towers.find((t) => t.id === q.get('tower'))
+  const tower = q.get('tower') === ON_SALE ? SALE_TOWER : null
   const floor = tower?.floors.find((f) => f.n === Number(q.get('floor')))
   if (!floor) return null
   const flats = FLOOR_PLANS.find((p) => p.id === tower.id).flats

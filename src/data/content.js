@@ -70,19 +70,44 @@ export const OVERVIEW = {
       { value: '4', label: 'Level parking' },
     ],
   },
-  // the architect's message, in his words (sent by the client, Nov 2026); his portrait is a frame
-  // of his interview in Aludecor's reel (instagram.com/reel/DZM-AOMiLt9), cropped clear of its logo
+  // The architect, over two pages as Rustomjee's features give theirs. First who he is: his portrait
+  // (the posed portrait on the title card of Aludecor's film on 36 Turner Road,
+  // youtube.com/watch?v=ppW5fppGCF8, which names him "Ar. Kaushik Patel, Principal Architect, KPA,
+  // Mumbai"), a line of his own words, and that project, also by KPA (a still from the same film). The
+  // intro only restates his message; nothing here is put in his mouth.
   architect: {
-    eyebrow: 'Architect Vision',
+    eyebrow: 'The Architect',
+    name: 'Ar. Kaushik Patel',
+    role: 'Principal Architect · KPA, Mumbai',
+    quote: 'A calm home, with the city within reach.',
+    intro:
+      'Urban Reserve is designed by Ar. Kaushik Patel of KPA, Mumbai: two staggered towers rising over a forest of their own, a new point on the skyline of Mira Road East, with the greens brought close to the ground.',
+    image: img('architect-portrait'),
+    work: {
+      label: 'Also by KPA',
+      name: '36 Turner Road, Virar',
+      line: 'An arrow-shaped site wrapped in a parametric façade of fins that changes with the light, and with the angle it is seen from.',
+      image: img('kpa-turner-road'),
+    },
+  },
+  // Then his vision: his message (sent by the client, Nov 2026) whole, in his words, and the four
+  // ideas it rests on, each a line of it, beside the two towers as he describes them.
+  vision: {
+    eyebrow: "Architect's Vision",
     title: ['A reserve', 'within the city'],
     message: [
       'Urban Reserve is designed around a simple idea: a calm home with the city within reach. Mira Road East is at a changing point, and the project is meant to mark it.',
       'Two staggered towers avoid a single block and read as a pair, which creates a new skyline point for the neighbourhood. Close to the ground, we have tried to create a sense of green, so residents come home from the greens and not from the street.',
       'Height gives views and openness. The greens give calm and a sense of belonging. Together they make a home that feels like a reserve within the city.',
     ],
-    name: 'Ar. Kaushik Patel',
-    role: 'Message from our architect',
-    image: img('architect'),
+    ideas: [
+      { title: 'A pair, not a block', line: 'Two staggered towers, a new point on the skyline' },
+      { title: 'Home from the greens', line: 'Green close to the ground, not the street' },
+      { title: 'Height', line: 'Views and openness, forty storeys up' },
+      { title: 'Belonging', line: 'Greens that give calm and a sense of home' },
+    ],
+    sign: 'Message from our architect',
+    image: img('building-dusk'),
   },
   // the client's landscape vision (Nov 2026), in its own words, cut down to two short paragraphs
   landscape: {
@@ -522,6 +547,10 @@ export const TOWERS = [
   floors: data.scenes.map(floorOf(id)).sort((a, b) => b.height - a.height),
 }))
 
+// The one tower whose homes are on offer (the client sells Tower B alone, Nov 2026): Residences, the
+// unit finder and its comparisons keep to it. Tower A stays in the pictures and the Views section.
+export const ON_SALE = 'towerB'
+
 // The tower and floor a query asks for (?tower=towerB&floor=23, as a home's view links to them). A
 // floor without a view of its own opens on the nearest one with a view, and with no floor asked for
 // it is the first tower's starting floor.
@@ -542,18 +571,18 @@ export const floorsOf = (towerId) =>
 // A comparison sets two or three homes side by side, all in one tower (never one tower against the
 // other). The first one opens on three, one of each kind: Flat 1 (3 BHK), Flat 3 (2 BHK) and Jodi 5 + 6.
 export const MOST_COMPARED = 3
-const FIRST_COMPARED = ['towerA.1', 'towerA.3', 'towerA.5-6']
+const FIRST_COMPARED = ['towerB.1', 'towerB.3', 'towerB.5-6']
 
 // The homes a comparison shows, as an address holds them (?compare=towerA.1.20,towerB.3.20, tower,
 // home and floor of each, with &views once it is on their views), or null when it isn't a comparison.
 // What is missing or unknown is taken from the first comparison's home in its place, and a single home
-// is set against its second. Every home takes the first one's tower.
+// is set against its second. Every home is in the tower on offer.
 export function comparison(search) {
   const q = new URLSearchParams(search)
   if (!q.has('compare')) return null
   const asked = q.get('compare').split(',').slice(0, MOST_COMPARED)
   const sides = asked.join('') ? asked : FIRST_COMPARED
-  const tower = TOWERS.find((t) => t.id === sides[0].split('.')[0]) ?? TOWERS[0]
+  const tower = TOWERS.find((t) => t.id === ON_SALE)
   const floors = floorsOf(tower.id)
   const homes = Array.from({ length: Math.max(2, sides.length) }, (_, i) => {
     const [, unitId, floorNo] = (sides[i] ?? '').split('.')

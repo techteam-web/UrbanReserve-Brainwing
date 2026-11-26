@@ -4,6 +4,9 @@
 @custom-variant lg (@media (width >= 64rem) and (orientation: landscape));
 /* Portrait tablets: still the stacked layout, but with room for the dock's labels. */
 @custom-variant roomy (@media (width >= 48rem) and (orientation: portrait));
+/* Phones on their side (and small landscape windows): too short for the stacked layout, so some screens
+   lay out side by side here too. */
+@custom-variant sideways (@media (width < 64rem) and (orientation: landscape));
 
 @theme {
   --color-forest-950: #0d231d;

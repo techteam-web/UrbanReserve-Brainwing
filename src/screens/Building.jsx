@@ -3,7 +3,8 @@ import { gsap } from '../gsap/gsapConfig'
 import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { floorName } from '../data/content'
-import { BUILDING } from '../data/residences'
+import { BUILDING, SALE_TOWER } from '../data/residences'
+import { HOME_FLOORS } from '../data/finder'
 import ModeSwitch from './ModeSwitch'
 
 const { width: W, height: H, focus: F } = BUILDING
@@ -19,21 +20,29 @@ function boxOf(points) {
   const ys = n.filter((_, i) => i % 2 === 1)
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
 }
-// every floor of both towers by `${tower}.${floor}`; `side` is the tower's place, 0 on the left
-const FLOORS = new Map(BUILDING.towers.flatMap((tower, side) => tower.floors.map((floor) => [`${tower.id}.${floor.n}`, { tower, side, floor, box: boxOf(floor.points) }])))
+// Only the tower on offer (Tower B, the nearer one) has floors to pick: the other stands in the
+// picture and nothing more. Its floors by number.
+const TOWER = SALE_TOWER
+const FLOORS = new Map((TOWER?.floors ?? []).map((floor) => [floor.n, { floor, box: boxOf(floor.points) }]))
+const TOWER_BOX = TOWER && [...FLOORS.values()].reduce((a, { box: b }) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])], [Infinity, Infinity, -Infinity, -Infinity])
 
-// The lit floor's name, on the outer side of its tower.
-function FloorTag({ tower, side, floor, box: [left, top, right, bottom] }) {
-  const beside = side ? { left: pct(right + 70, W) } : { right: pct(W - left + 70, W) }
+// The lit floor's number, large in the sky beside the tower (as the Rustomjee app has it), level with
+// the floor.
+function FloorMark({ floor, box: [, top, , bottom] }) {
+  const [number, word] = floorName(floor.n).split(' ')
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute -translate-y-1/2 whitespace-nowrap border border-ivory/15 bg-forest-950/80 px-3.5 py-2 shadow-[0_20px_50px_-20px_rgb(0_0_0/0.8)] backdrop-blur-xl"
-      style={{ ...beside, top: pct((top + bottom) / 2, H) }}
+      className="pointer-events-none absolute -translate-y-1/2 text-right whitespace-nowrap text-ivory [text-shadow:0_2px_24px_rgb(0_0_0/0.45)]"
+      style={{ right: pct(W - TOWER_BOX[0] + 360, W), top: pct((top + bottom) / 2, H) }}
     >
-      <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-gold/70 to-transparent" />
-      <span className="label block text-[max(0.58rem,9px)] text-gold-lit">{tower.label}</span>
-      <span className="mt-1 block font-display text-[clamp(1.05rem,2.4vh,1.6rem)] leading-none uppercase tracking-[0.06em]">{floorName(floor.n)}</span>
+      <span className="block font-display text-[clamp(4.5rem,15vh,10rem)] leading-[0.8] font-light">
+        {floor.n}
+        <span className="align-top text-[0.3em]">{number.replace(/\d+/, '')}</span>
+      </span>
+      <span className="label mt-[1.2vh] block text-[max(0.6rem,9px)] text-gold-lit">
+        {TOWER.label} · {word}
+      </span>
     </div>
   )
 }
@@ -49,12 +58,13 @@ export default function Building() {
   const root = useRef(null)
   const room = useRef(null)
   const words = useRef(null)
+  const head = useRef(null)
   const art = useRef(null)
   const marks = useRef(null)
   const bands = useRef(new Map())
   const { go } = useNav()
   const [lit, setLit] = useState(null)
-  // the one floor the keyboard tabs to: the lowest of the first tower, then the last one focused
+  // the one floor the keyboard tabs to: the lowest, then the last one focused
   const [current, setCurrent] = useState(() => FLOORS.keys().next().value)
 
   // the floors light up once, from the foot of the towers to their crowns, to show they can be picked
@@ -74,25 +84,30 @@ export default function Building() {
       const r = room.current.getBoundingClientRect()
       const p = words.current.getBoundingClientRect()
       const beside = matchMedia(BESIDE).matches
-      let { left, bottom } = r
+      let { left, top, bottom } = r
       if (beside) left = Math.max(left, p.right + 24)
-      else bottom = Math.min(bottom, p.top - 16)
+      // upright, the towers also stand below the switch at the top
+      else {
+        bottom = Math.min(bottom, p.top - 16)
+        top = Math.max(top, head.current.getBoundingClientRect().bottom + 12)
+      }
       const width = Math.max(r.right - left, 1)
-      const height = Math.max(bottom - r.top, 1)
+      const height = Math.max(bottom - top, 1)
       const fitted = Math.min(width / F.w, height / F.h)
       const s = beside ? Math.max(fitted, stage.width / W, stage.height / H) : fitted
       // a picture larger than the screen keeps covering it; one narrower stays centred on the towers,
       // and one shorter keeps its top at the top
       const wantX = left - stage.left + width / 2 - (F.x + F.w / 2) * s
-      const wantY = r.top - stage.top + height / 2 - (F.y + F.h / 2) * s
+      const wantY = top - stage.top + height / 2 - (F.y + F.h / 2) * s
       const x = W * s >= stage.width ? clamp(wantX, stage.width - W * s, 0) : wantX
-      const y = H * s >= stage.height ? clamp(wantY, stage.height - H * s, 0) : Math.min(0, wantY)
+      // (upright, it may come down to clear the switch, its top fading into the dark)
+      const y = H * s >= stage.height ? clamp(wantY, stage.height - H * s, 0) : beside ? Math.min(0, wantY) : wantY
       for (const el of [art.current, marks.current]) {
         el.style.width = `${W * s}px`
         el.style.height = `${H * s}px`
         el.style.translate = `${x}px ${y}px`
       }
-      art.current.style.maskImage = art.current.style.webkitMaskImage = beside ? '' : 'linear-gradient(to bottom, #000 78%, transparent)'
+      art.current.style.maskImage = art.current.style.webkitMaskImage = beside ? '' : `linear-gradient(to bottom, ${y > 0 ? 'transparent, #000 6%,' : ''} #000 78%, transparent)`
     }
     fit()
     const ro = new ResizeObserver(fit)
@@ -101,30 +116,21 @@ export default function Building() {
     return () => ro.disconnect()
   }, [])
 
-  const open = (tower, floor) => go('residences', `?tower=${tower.id}&floor=${floor.n}`)
+  const open = (floor) => go('residences', `?tower=${TOWER.id}&floor=${floor.n}`)
 
-  const onKey = (e, key) => {
-    const { tower, side, floor } = FLOORS.get(key)
+  const onKey = (e, n) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      open(tower, floor)
+      open(FLOORS.get(n).floor)
       return
     }
-    const to = {
-      ArrowUp: [side, floor.n + 1],
-      ArrowDown: [side, floor.n - 1],
-      ArrowLeft: [side - 1, floor.n],
-      ArrowRight: [side + 1, floor.n],
-      Home: [side, tower.floors[0].n],
-      End: [side, tower.floors.at(-1).n],
-    }[e.key]
-    if (!to) return
+    const to = { ArrowUp: n + 1, ArrowDown: n - 1, Home: TOWER.floors[0].n, End: TOWER.floors.at(-1).n }[e.key]
+    if (to === undefined) return
     e.preventDefault()
-    const next = BUILDING.towers[clamp(to[0], 0, BUILDING.towers.length - 1)]
-    bands.current.get(`${next.id}.${to[1]}`)?.focus()
+    bands.current.get(to)?.focus()
   }
 
-  const tag = lit && FLOORS.get(lit)
+  const tag = lit != null && FLOORS.get(lit)
 
   return (
     <section ref={root} className="screen bg-forest-950 text-ivory">
@@ -141,70 +147,69 @@ export default function Building() {
 
       {/* the floors, laid over the picture where it lies */}
       <div ref={marks} className="absolute left-0 top-0">
-        <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" role="group" aria-label="Floors of homes, each opening its plan">
-          <g aria-hidden="true" className="pointer-events-none">
-            {BUILDING.towers.flatMap((tower) =>
-              tower.floors.map((floor) => <polygon key={`${tower.id}.${floor.n}`} data-sweep={floor.n} points={floor.points} className="fill-ivory/30 opacity-0" />),
-            )}
-          </g>
-          {BUILDING.towers.map((tower) => (
-            <g key={tower.id} role="group" aria-label={tower.label}>
-              {tower.floors.map((floor) => {
-                const key = `${tower.id}.${floor.n}`
-                return (
-                  <polygon
-                    key={key}
-                    ref={(el) => {
-                      bands.current.set(key, el)
-                      return () => bands.current.delete(key)
-                    }}
-                    points={floor.points}
-                    role="link"
-                    tabIndex={key === current ? 0 : -1}
-                    aria-label={`${tower.label}, ${floorName(floor.n)}`}
-                    onPointerEnter={() => setLit(key)}
-                    onPointerLeave={() => setLit((k) => (k === key ? null : k))}
-                    onFocus={() => {
-                      setLit(key)
-                      setCurrent(key)
-                    }}
-                    onBlur={() => setLit((k) => (k === key ? null : k))}
-                    onClick={() => open(tower, floor)}
-                    onKeyDown={(e) => onKey(e, key)}
-                    vectorEffect="non-scaling-stroke"
-                    className={`cursor-pointer outline-none transition-[fill,stroke] duration-300 ${
-                      key === lit ? 'fill-forest-900/55 stroke-gold-lit stroke-2' : 'fill-transparent stroke-transparent stroke-1 pointer-coarse:stroke-ivory/30'
-                    }`}
-                  />
-                )
-              })}
+        {TOWER && (
+          <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" role="group" aria-label={`Floors of homes in ${TOWER.label}, each opening its plan`}>
+            <g aria-hidden="true" className="pointer-events-none">
+              {TOWER.floors.map((floor) => (
+                <polygon key={floor.n} data-sweep={floor.n} points={floor.points} className="fill-ivory/30 opacity-0" />
+              ))}
             </g>
-          ))}
-        </svg>
+            {TOWER.floors.map((floor) => {
+              const n = floor.n
+              return (
+                <polygon
+                  key={n}
+                  ref={(el) => {
+                    bands.current.set(n, el)
+                    return () => bands.current.delete(n)
+                  }}
+                  points={floor.points}
+                  role="link"
+                  tabIndex={n === current ? 0 : -1}
+                  aria-label={`${TOWER.label}, ${floorName(n)}`}
+                  onPointerEnter={() => setLit(n)}
+                  onPointerLeave={() => setLit((k) => (k === n ? null : k))}
+                  onFocus={() => {
+                    setLit(n)
+                    setCurrent(n)
+                  }}
+                  onBlur={() => setLit((k) => (k === n ? null : k))}
+                  onClick={() => open(floor)}
+                  onKeyDown={(e) => onKey(e, n)}
+                  vectorEffect="non-scaling-stroke"
+                  className={`cursor-pointer outline-none transition-[fill,stroke] duration-300 ${
+                    n === lit ? 'fill-ember/45 stroke-gold-lit stroke-2' : 'fill-transparent stroke-transparent stroke-1 pointer-coarse:stroke-ivory/30'
+                  }`}
+                />
+              )
+            })}
+          </svg>
+        )}
 
-        {BUILDING.towers.map((tower) => {
-          const [left, top, right] = FLOORS.get(`${tower.id}.${tower.floors.at(-1).n}`).box
-          return (
-            <p
-              key={tower.id}
-              data-in
-              aria-hidden="true"
-              className="label pointer-events-none absolute -translate-x-1/2 -translate-y-full whitespace-nowrap text-[max(0.62rem,9px)] text-ivory [text-shadow:0_1px_10px_rgb(0_0_0/0.6)]"
-              style={{ left: pct((left + right) / 2, W), top: pct(top - 330, H) }}
-            >
-              {tower.label}
-            </p>
-          )
-        })}
-        {tag && <FloorTag {...tag} />}
+        {TOWER && (
+          <p
+            data-in
+            aria-hidden="true"
+            className="label pointer-events-none absolute -translate-x-1/2 -translate-y-full whitespace-nowrap text-[max(0.62rem,9px)] text-ivory [text-shadow:0_1px_10px_rgb(0_0_0/0.6)]"
+            style={{ left: pct((TOWER_BOX[0] + TOWER_BOX[2]) / 2, W), top: pct(TOWER_BOX[1] - 330, H) }}
+          >
+            {TOWER.label}
+          </p>
+        )}
+        {tag && <FloorMark {...tag} />}
       </div>
 
-      {/* taps go through the words to any floor beneath them; only the switch takes its own */}
+      {/* the two ways in, at the top, just under the sound switch */}
+      <div ref={head} data-in className="absolute left-(--gutter) top-(--chrome-top) w-[min(calc(100%-2*var(--gutter)),22rem)]">
+        <ModeSwitch tone="dark" />
+      </div>
+
+      {/* taps go through the words to any floor beneath them */}
       <div ref={words} className="pointer-events-none absolute inset-x-(--gutter) bottom-[calc(var(--chrome-bot)+1.25rem)] landscape:right-auto landscape:bottom-auto landscape:top-1/2 landscape:w-[clamp(15rem,28vw,31rem)] landscape:-translate-y-1/2">
-        <div data-in className="pointer-events-auto mt-[2vh] max-w-sm">
-          <ModeSwitch tone="dark" />
-        </div>
-        <h2 data-in className="display mt-[3vh] text-[clamp(1.9rem,5vh,3rem)] font-light lg:text-[clamp(2.2rem,6vh,4.4rem)]">
+        <p data-in className="label text-[max(0.62rem,9px)] text-gold-lit">
+          {TOWER?.label} · Floors {HOME_FLOORS}
+        </p>
+        <h2 data-in className="display mt-[2vh] text-[clamp(1.9rem,5vh,3rem)] font-light lg:text-[clamp(2.2rem,6vh,4.4rem)]">
           Pick a
           <br />
           floor
