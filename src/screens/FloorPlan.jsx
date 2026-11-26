@@ -3,7 +3,7 @@ import { gsap, useGSAP, reduced } from '../gsap/gsapConfig'
 import { useIntro } from '../hooks/useIntro'
 import { useScrub } from '../hooks/useScrub'
 import { useNav } from '../app/nav'
-import { facingOf, FLOOR_PLANS, floorName, MOST_COMPARED, TOWERS, unitOf, viewFloor } from '../data/content'
+import { facingOf, FLOOR_PLANS, floorName, MOST_COMPARED, TOWERS, unitOf, VIEW_LOOK, viewFloor } from '../data/content'
 import { finder } from '../data/finder'
 import { BUILDING } from '../data/residences'
 import { SCENES } from '../data/scenes'
@@ -277,15 +277,16 @@ function FlatPanel({ tower, floor, flat, mode, onClose, onView, onMode }) {
 
 /**
  * The view from a home, over the floor's plan rather than off to the Views section: the 360° view from
- * the nearest floor that has one, turned the way the home looks out. The × (or Esc) closes it, back to
- * the plan as it was.
+ * the nearest floor that has one, turned the way the home looks out and held there as a still picture,
+ * as the comparison of views shows them. The × (or Esc) closes it, back to the plan as it was.
  */
 function HomeView({ tower, floor, flat, onClose }) {
   const root = useRef(null)
   const closer = useRef(null)
   const unit = unitOf(flat)
   const view = viewFloor(tower.id, floor.n)
-  const [facing] = useState(() => facingOf(flat))
+  // a still picture, framed as the comparison of views frames them: it can't be dragged or turned
+  const [facing] = useState(() => ({ ...facingOf(flat), ...VIEW_LOOK }))
   const close = useEffectEvent(() => onClose())
 
   useGSAP(
@@ -332,7 +333,7 @@ function HomeView({ tower, floor, flat, onClose }) {
   return (
     <div ref={root} role="dialog" aria-modal="true" aria-label={`The view from ${unit.label}`} className="absolute inset-0 z-50 bg-forest-950 text-ivory">
       <Suspense fallback={null}>
-        <PanoramaViewer scenes={SCENES} active={view.key} autorotate={false} mouseViewMode="drag" facing={facing} />
+        <PanoramaViewer still scenes={SCENES} active={view.key} autorotate={false} facing={facing} />
       </Suspense>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[22vh] bg-linear-to-b from-forest-950/65 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[30vh] bg-linear-to-t from-forest-950/80 to-transparent" />
@@ -357,9 +358,7 @@ function HomeView({ tower, floor, flat, onClose }) {
           The view from {unit.label}
         </h2>
         <p data-view-in className="mt-2 text-[clamp(0.78rem,1.6vh,0.95rem)] text-ivory/75">
-          {view.id !== floor.n ? `Seen from the ${floorName(view.id).toLowerCase()}, the nearest with a 360° view. ` : ''}
-          <span className="pointer-coarse:hidden">Drag to look around.</span>
-          <span className="hidden pointer-coarse:inline">Swipe to look around.</span>
+          A drone photograph from {tower.label} at the height of the {floorName(view.id).toLowerCase()}, turned the way this home looks out.
         </p>
       </div>
     </div>
