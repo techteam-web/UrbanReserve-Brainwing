@@ -3,8 +3,17 @@ import { useNav } from '../app/nav'
 import { comparison, isFinder } from '../data/content'
 import { Segmented } from '../components/ui'
 
+// (a phone on its side gives the switch a narrow column, and a shorter name)
 const MODES = [
-  { id: 'visual', label: 'Visual Selection' },
+  {
+    id: 'visual',
+    label: (
+      <>
+        <span className="sideways:hidden">Visual Selection</span>
+        <span className="hidden sideways:inline">Visual</span>
+      </>
+    ),
+  },
   { id: 'compare', label: 'Unit finder' },
 ]
 

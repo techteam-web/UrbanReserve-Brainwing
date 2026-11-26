@@ -130,7 +130,8 @@ export function Toggle({ label, on, onChange, className = '' }) {
   )
 }
 
-// A pill of options with a sliding thumb behind the chosen one.
+// A pill of options with a sliding thumb behind the chosen one. An item can be `disabled`, with a
+// `title` to say why.
 export function Segmented({ items, value, onChange, tone = 'light', size = 'md', className = '' }) {
   const i = Math.max(0, items.findIndex((t) => t.id === value))
   const dark = tone === 'dark'
@@ -148,8 +149,11 @@ export function Segmented({ items, value, onChange, tone = 'light', size = 'md',
             key={t.id}
             role="tab"
             aria-selected={on}
+            aria-disabled={t.disabled || undefined}
+            disabled={t.disabled}
+            title={t.title}
             onClick={() => onChange(t.id)}
-            className={`label relative z-[1] truncate rounded-full transition-colors duration-300 active:scale-95 ${size === 'sm' ? 'px-1 py-2 text-[max(0.58rem,9px)]' : 'px-3 py-3'} ${
+            className={`label relative z-[1] truncate rounded-full transition-colors duration-300 enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${size === 'sm' ? 'px-1 py-2 text-[max(0.58rem,9px)]' : 'px-3 py-3'} ${
               on ? (dark ? 'text-forest-950' : 'text-forest-900') : dark ? 'text-ivory/70' : 'text-forest-900/55'
             }`}
           >

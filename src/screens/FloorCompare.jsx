@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { decodeImages } from '../app/decode'
-import { compareQuery, configOf, facingOf, floorName, floorsOf, ROOM_ORDER, roomsLine, TOWERS } from '../data/content'
+import { compareQuery, configOf, facingOf, floorName, floorsOf, ROOM_ORDER, roomsLine } from '../data/content'
 import { areasOf, ROOM_KINDS } from '../data/rooms'
 import { finder, keepPicked } from '../data/finder'
 import { SCENES } from '../data/scenes'
@@ -257,8 +257,7 @@ export function ComparePlans({ homes }) {
 }
 
 // The third step: from each home, the one way it looks out, at the height of a floor picked for all of
-// them, as still pictures side by side. The tower changes for all of them together: a comparison keeps
-// to one tower.
+// them, as still pictures side by side, all in the tower on offer.
 export function CompareViews({ homes }) {
   const root = useRef(null)
   const { go } = useNav()
@@ -268,13 +267,11 @@ export function CompareViews({ homes }) {
   useIntro(root)
 
   // the way each home looks out holds while the screen is up (it is set anew for other homes, see
-  // Residences); a floor or a tower changes only the picture it looks at
+  // Residences); a floor changes only the picture it looks at
   const [looks] = useState(() => homes.map((h) => ({ ...facingOf(h.unit), ...LOOK })))
   const show = (next) => go('residences', compareQuery(next, true), { replace: true })
   const atFloor = (towerId, n) => floorsOf(towerId).find((f) => f.id === n) ?? floorsOf(towerId)[0]
   const pickFloor = (n) => show(homes.map((h) => ({ ...h, floor: atFloor(h.tower.id, n) })))
-  const tower = homes[0].tower
-  const pickTower = (id) => show(homes.map((h) => ({ ...h, tower: TOWERS.find((t) => t.id === id), floor: atFloor(id, floorId) })))
 
   return (
     <section ref={root} className="screen bg-paper text-forest-900">
@@ -287,8 +284,7 @@ export function CompareViews({ homes }) {
             <CloseButton onClick={leave} label="Back to the unit finder" />
           </Head>
 
-          <div data-in role="group" aria-label="The tower and the height of the views" className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <Segmented items={TOWERS} value={tower.id} onChange={(id) => id !== tower.id && pickTower(id)} size="sm" className="w-[min(100%,12.5rem)]" />
+          <div data-in role="group" aria-label="The height of the views" className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <p className="label text-[max(0.58rem,9px)] tracking-[0.2em] text-ink/60">At the height of floor</p>
             <div className="flex flex-wrap gap-1.5">
               {floorsOf(homes[0].tower.id).map((f) => {
