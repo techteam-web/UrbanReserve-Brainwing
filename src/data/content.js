@@ -196,6 +196,9 @@ export const PLAN_UP = (177 * Math.PI) / 180
 
 // The way a home looks out, as the panorama viewer's `facing`.
 export const facingOf = ({ faces }) => ({ group: 'towers', angle: PLAN_UP + (faces * Math.PI) / 180 })
+// How a home's view is framed where it is shown as a still picture (the comparison of views, and
+// "View from this home"): a little below the horizon, and wide.
+export const VIEW_LOOK = { pitch: 0.2, fov: 1.35 }
 
 // A home's rooms: [name, size], with sizes as its drawing prints them and the largest of a kind first.
 const ROOMS_3BHK = [

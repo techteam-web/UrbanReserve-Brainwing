@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useIntro } from '../hooks/useIntro'
 import { useNav } from '../app/nav'
 import { decodeImages } from '../app/decode'
-import { compareQuery, configOf, facingOf, floorName, floorsOf, ROOM_ORDER, roomsLine } from '../data/content'
+import { compareQuery, configOf, facingOf, floorName, floorsOf, ROOM_ORDER, roomsLine, VIEW_LOOK } from '../data/content'
 import { areasOf, ROOM_KINDS } from '../data/rooms'
 import { finder, keepPicked } from '../data/finder'
 import { SCENES } from '../data/scenes'
@@ -22,7 +22,7 @@ const COLUMNS = { 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3' }
 // Each view looks the way its home does, tilted a little down (Marzipano's pitch is positive below
 // the horizon) so the city below fills most of it, as a picture rather than a panorama: it can't be
 // turned (see PanoramaViewer's `still`).
-const LOOK = { pitch: 0.2, fov: 1.35 }
+const LOOK = VIEW_LOOK
 
 // The homes' names (all in one tower, so the plan's name is enough)
 const namesOf = (homes) => homes.map((h) => h.unit.label)
