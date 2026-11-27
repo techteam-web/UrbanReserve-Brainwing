@@ -24,15 +24,16 @@ export const SECTIONS = [
   { id: 'specifications', label: 'Specifications', icon: 'sheet' },
 ]
 
-// The intro film: a silent web cut of public/video/urbanHome.mp4 (H.264, CRF 27, no audio track,
-// index first so it streams),
-// 4 s through the forest and out at the towers. `turn` is where one shot morphs into the next
-// (seconds, read off its frames: the leaves part from 1.55 s and the towers stand clear by 2.0 s);
-// the logo draws itself over it.
+// The intro film (the client's "urban entry video", Nov 2026): a silent web cut of it (H.264, CRF 26,
+// 30 fps, no audio track, index first so it streams), 6 s through the forest and out at the towers,
+// ending on Home's picture. `turn` is where one shot morphs into the next (seconds, read off its
+// frames: the sky shows through the leaves from 3.1 s and the towers stand clear by 3.75 s); the logo
+// draws itself over it. `length` is the film's running time, for its slow push in.
 export const INTRO = {
-  film: '/video/intro.mp4',
-  poster: '/video/intro-poster.webp',
-  turn: [1.55, 2.0],
+  film: '/video/entry.mp4',
+  poster: '/video/entry-poster.webp',
+  turn: [3.1, 3.75],
+  length: 6,
 }
 
 // Home's picture is the towers by day, the intro film's last shot (the Residences page starts from it too)
@@ -40,15 +41,15 @@ export const LANDING = {
   image: img('building-day'),
   size: [4800, 2700],
   // the open sky in the picture, as fractions of it, where the name settles after its entrance clear
-  // of the trees and the towers. The top right, right of the towers, comes first wherever the name
-  // keeps half its size there; elsewhere it takes the patch that keeps it largest: between the big
-  // tree on the left and the towers, or the strip by the towers. `v` is where in the patch it sits,
-  // from its top (0) to its foot (1).
+  // of the trees and the towers. The sky on the left, between the big tree and the towers, comes first
+  // wherever the name keeps nearly half its size there (the client's choice, Nov 2026); elsewhere it
+  // takes the patch that keeps it largest: the strip by the towers, or the top right. `v` is where in
+  // the patch it sits, from its top (0) to its foot (1).
   sky: [
-    { x0: 0.775, y0: 0.03, x1: 1, y1: 0.6, v: 0.2, first: 0.5 },
-    { x0: 0.34, y0: 0.16, x1: 0.555, y1: 0.43, v: 0.5 },
+    { x0: 0.315, y0: 0.15, x1: 0.56, y1: 0.45, v: 0.45, first: 0.42 },
     // the strip just left of the towers, under the tree's top leaves (the sky left on a tablet held upright)
     { x0: 0.45, y0: 0.18, x1: 0.565, y1: 0.6, v: 0.3 },
+    { x0: 0.775, y0: 0.03, x1: 1, y1: 0.6, v: 0.2 },
   ],
 }
 
@@ -70,43 +71,31 @@ export const OVERVIEW = {
       { value: '4', label: 'Level parking' },
     ],
   },
-  // The architect, over two pages as Rustomjee's features give theirs. First who he is: his portrait
-  // (the posed portrait on the title card of Aludecor's film on 36 Turner Road,
-  // youtube.com/watch?v=ppW5fppGCF8, which names him "Ar. Kaushik Patel, Principal Architect, KPA,
-  // Mumbai"), a line of his own words, and that project, also by KPA (a still from the same film). The
-  // intro only restates his message; nothing here is put in his mouth.
+  // The architect, over two pages as Rustomjee's features give theirs. First his message, as
+  // Rustomjee's chairman gives his: his portrait (a still from Aludecor's film on KPA's 36 Turner Road,
+  // youtube.com/watch?v=ppW5fppGCF8, at 6:00, which names him "Ar. Kaushik Patel, Principal Architect,
+  // KPA, Mumbai") beside his message (sent by the client, Nov 2026) in his own words, signed.
   architect: {
-    eyebrow: 'The Architect',
+    eyebrow: 'Message from our architect',
     name: 'Ar. Kaushik Patel',
     role: 'Principal Architect · KPA, Mumbai',
-    quote: 'A calm home, with the city within reach.',
-    intro:
-      'Urban Reserve is designed by Ar. Kaushik Patel of KPA, Mumbai: two staggered towers rising over a forest of their own, a new point on the skyline of Mira Road East, with the greens brought close to the ground.',
-    image: img('architect-portrait'),
-    work: {
-      label: 'Also by KPA',
-      name: '36 Turner Road, Virar',
-      line: 'An arrow-shaped site wrapped in a parametric façade of fins that changes with the light, and with the angle it is seen from.',
-      image: img('kpa-turner-road'),
-    },
-  },
-  // Then his vision: his message (sent by the client, Nov 2026) whole, in his words, and the four
-  // ideas it rests on, each a line of it, beside the two towers as he describes them.
-  vision: {
-    eyebrow: "Architect's Vision",
-    title: ['A reserve', 'within the city'],
+    image: img('architect-kp'),
     message: [
       'Urban Reserve is designed around a simple idea: a calm home with the city within reach. Mira Road East is at a changing point, and the project is meant to mark it.',
       'Two staggered towers avoid a single block and read as a pair, which creates a new skyline point for the neighbourhood. Close to the ground, we have tried to create a sense of green, so residents come home from the greens and not from the street.',
       'Height gives views and openness. The greens give calm and a sense of belonging. Together they make a home that feels like a reserve within the city.',
     ],
-    ideas: [
-      { title: 'A pair, not a block', line: 'Two staggered towers, a new point on the skyline' },
-      { title: 'Home from the greens', line: 'Green close to the ground, not the street' },
-      { title: 'Height', line: 'Views and openness, forty storeys up' },
-      { title: 'Belonging', line: 'Greens that give calm and a sense of home' },
+  },
+  // Then his vision, laid out as the landscape vision is: a heading, his line, and two short
+  // paragraphs drawn from his message, beside the two towers he describes.
+  vision: {
+    eyebrow: "Architect's Vision",
+    title: ['A Reserve', 'within the City'],
+    line: 'A calm home, with the city within reach.',
+    body: [
+      'Two staggered towers read as a pair rather than a single block: a new point on the skyline of Mira Road East.',
+      'Close to the ground, green comes first, so residents come home from the greens and not from the street. Height gives views and openness; the greens give calm and a sense of belonging.',
     ],
-    sign: 'Message from our architect',
     image: img('building-dusk'),
   },
   // the client's landscape vision (Nov 2026), in its own words, cut down to two short paragraphs
@@ -121,16 +110,15 @@ export const OVERVIEW = {
     image: img('sapling-hands'),
     texture: img('leaf-texture'),
   },
-  // the client's landscape brief, The Sculpted Forest (Nov 2026), in its own words, kept to a sentence
+  // the client's landscape brief, The Sculpted Forest (Nov 2026), in its own words, laid out as the
+  // landscape vision is: a heading, its line, and two short paragraphs (the second, its two levels)
   forest: {
     title: ['The Sculpted', 'Forest'],
     line: 'Where the city slows, nature comes alive.',
-    body: 'Rooted in woodland: undulating earth mounds, layered tree canopies, immersive green corridors and organic materiality, a curated wilderness of depth, privacy and discovery.',
-    levels: [
-      { label: 'Ground Level', name: 'The Deep Forest Base', about: 'Dense plantations, shaded walkways, sensory gardens and secluded retreats: a natural buffer from the city.' },
-      { label: 'Podium Level', name: 'The Elevated Canopy', about: 'Recreation, canopy-lined pathways, wellness pockets and gathering spaces: the heart of community life.' },
+    body: [
+      'Rooted in woodland: undulating earth mounds, layered tree canopies, immersive green corridors and organic materiality, a curated wilderness of depth, privacy and discovery.',
+      'At ground level, the Deep Forest Base: dense plantations, shaded walkways and secluded retreats. Above it, the Elevated Canopy: recreation, wellness pockets and gathering spaces, the heart of community life.',
     ],
-    close: 'Not just living among nature. Living within it.',
     image: img('r-pavilion'),
   },
   building: {

@@ -58,7 +58,7 @@ function Film({ onDone }) {
 
       // positions are seconds into the film
       const tl = gsap.timeline({ paused: true })
-      tl.fromTo(v, { scale: 1 }, { scale: 1.04, duration: 4, ease: 'none' }, 0)
+      tl.fromTo(v, { scale: 1 }, { scale: 1.04, duration: INTRO.length, ease: 'none' }, 0)
         // as the leaves part the forest darkens and softens, so the turn to the towers goes unseen ...
         .to('[data-veil]', { opacity: 0.88, duration: 0.45, ease: 'sine.inOut' }, TURN_FROM - 0.5)
         .fromTo(v, { filter: 'blur(0px)' }, { filter: 'blur(10px)', duration: 0.4, ease: 'sine.inOut' }, TURN_FROM - 0.45)

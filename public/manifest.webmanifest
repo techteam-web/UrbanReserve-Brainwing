@@ -1,0 +1,17 @@
+{
+  "name": "Urban Reserve — Naturally Elevated Living",
+  "short_name": "Urban Reserve",
+  "description": "Urban Reserve, Mira Road East: a forest sanctuary in the city.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0d231d",
+  "theme_color": "#0d231d",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
