@@ -83,6 +83,12 @@
     overflow: hidden;
     overscroll-behavior: none;
   }
+  /* the page itself never scrolls (only panes inside it do), so a phone's browser has nothing to
+     scroll that would slide its bars in and out under the app */
+  body {
+    position: fixed;
+    inset: 0;
+  }
   body {
     font-family: var(--font-sans);
     font-weight: 300;

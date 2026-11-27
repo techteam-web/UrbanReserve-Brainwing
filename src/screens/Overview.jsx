@@ -66,65 +66,39 @@ function Welcome() {
   )
 }
 
-// Three small squares of the palette, as Rustomjee sets beside its architects' pictures.
-function Accents({ className = '' }) {
-  return (
-    <div aria-hidden="true" className={`flex gap-1.5 ${className}`}>
-      <span className="size-[clamp(0.9rem,2vh,1.4rem)] bg-forest-700" />
-      <span className="size-[clamp(0.9rem,2vh,1.4rem)] bg-ember" />
-      <span className="size-[clamp(0.9rem,2vh,1.4rem)] bg-forest-950" />
-    </div>
-  )
-}
-
-// The architect, first page, as Rustomjee introduces theirs: his portrait large down the left, run
-// off the edge of the screen; beside it his name and practice, a line of his own in large type, who
-// he is to the project, and a project of his practice. Upright, the portrait comes first.
+// The architect's message, laid out as Rustomjee's features give their chairman's: on a quiet paper
+// ground, his photograph run off the left edge of the screen, unframed, and beside it his message in
+// his own words, set small and flush right, signed beneath. Upright, the photograph comes first.
 function Architect() {
   const a = OVERVIEW.architect
   return (
-    // the portrait keeps its own upright shape: as tall as the room between the bars, as wide as that
-    // makes it (up to 42% of the screen)
-    <div className="absolute inset-0 bg-paper text-forest-900 [--pw:min(42vw,calc((100dvh-var(--chrome-top)-1vh-var(--chrome-bot))*0.671))]">
-      <Botanical kind="fern" seed={11} depth={10} className={`bottom-[4vh] right-0 w-[16vw] -scale-x-100 ${EMBOSS}`} />
-      {/* landscape: run off the left edge, between the bars */}
-      <figure data-fade className="absolute top-[calc(var(--chrome-top)+1vh)] bottom-(--chrome-bot) left-0 hidden w-(--pw) landscape:block">
-        <img src={a.image} alt={`${a.name}, ${a.role}`} className="size-full object-cover object-top" />
-        <Accents className="absolute -right-[clamp(0.9rem,2vh,1.4rem)] bottom-[clamp(1rem,3vh,2rem)] flex-col" />
+    // the photograph keeps its own shape (1350 × 1080): as tall as the room between the bars allows,
+    // up to 46% of the screen's width
+    <div className="absolute inset-0 bg-paper text-forest-900 [--pw:min(46vw,calc((100dvh-var(--chrome-top)-var(--chrome-bot)-4vh)*1.25))]">
+      <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_20%,rgb(255_255_255/0.7),transparent_55%),radial-gradient(ellipse_at_60%_95%,var(--color-paper-deep),transparent_60%)]" />
+      {/* landscape: off the left edge, in the middle of the room between the bars */}
+      <figure data-fade className="absolute left-0 top-[calc((var(--chrome-top)+100%-var(--chrome-bot))/2)] hidden aspect-[1350/1080] w-(--pw) -translate-y-1/2 landscape:block">
+        <img src={a.image} alt={`${a.name}, ${a.role}`} className="size-full object-cover" />
       </figure>
 
-      <div className="safe pane relative flex h-full flex-col justify-center-safe landscape:pl-[calc(var(--pw)+clamp(2.5rem,5vw,6rem))]">
-        {/* upright: first, in the flow */}
-        <figure data-in className="relative mb-[4vh] aspect-[588/876] h-[36vh] shrink-0 self-start landscape:hidden">
-          <img src={a.image} alt="" className="size-full object-cover object-top" />
-          <Accents className="absolute -right-[clamp(0.9rem,2vh,1.4rem)] bottom-4 flex-col" />
+      <div className="safe pane relative flex h-full flex-col justify-center-safe landscape:items-end landscape:pl-[calc(var(--pw)+clamp(2rem,5vw,6rem))]">
+        {/* upright: first, in the flow, edge to edge */}
+        <figure data-in className="-mx-(--gutter) mb-[4vh] aspect-[1350/1080] shrink-0 landscape:hidden">
+          <img src={a.image} alt="" className="size-full object-cover" />
         </figure>
-        <div className="max-w-[42rem]">
-          <p data-in className="label text-gold-deep">{a.eyebrow}</p>
-          <h2 data-in className="display mt-[1.4vh] text-[clamp(2rem,5.6vh,4.2rem)] leading-[1.02] text-forest-800 [@media(max-height:32rem)]:text-[1.7rem]">
-            {a.name}
-          </h2>
-          <p data-in className="label mt-[1.2vh] text-forest-900/60">{a.role}</p>
-
-          <blockquote data-in className="relative mt-[clamp(1.6rem,3.4vh,2.6rem)] border-t border-forest-900/15 pt-[3vh] [@media(max-height:32rem)]:mt-5 [@media(max-height:32rem)]:pt-3">
-            <span aria-hidden="true" className="absolute -top-[0.08em] left-0 -translate-y-1/2 bg-paper pr-3 font-display text-[clamp(2.6rem,6vh,4.4rem)] leading-none text-ember [@media(max-height:32rem)]:text-[2rem]">
-              &ldquo;
-            </span>
-            <p className="display text-[clamp(1.35rem,3.4vh,2.5rem)] leading-[1.15] text-forest-800 [@media(max-height:32rem)]:text-[1.1rem]">{a.quote}</p>
-          </blockquote>
-
-          <p data-in className="mt-[2.6vh] text-[clamp(0.82rem,1.75vh,1.05rem)] leading-relaxed text-forest-900/75 [@media(max-height:32rem)]:hidden">
-            {a.intro}
-          </p>
-
-          {/* a project of his practice */}
-          <div data-in className="mt-[3.4vh] [@media(max-height:32rem)]:mt-3 flex items-center gap-[clamp(0.9rem,1.4vw,1.4rem)] bg-white/70 p-[clamp(0.5rem,1vh,0.75rem)] pr-[clamp(0.9rem,1.4vw,1.4rem)] shadow-[0_24px_50px_-36px_rgb(20_52_41/0.7)] ring-1 ring-forest-900/10">
-            <img src={a.work.image} alt={`${a.work.name}, by KPA`} className="aspect-[4/3] h-[clamp(4.5rem,12vh,8.5rem)] w-auto shrink-0 object-cover [@media(max-height:32rem)]:h-[3.2rem]" />
-            <div className="min-w-0">
-              <p className="label text-ember-deep">{a.work.label}</p>
-              <p className="display mt-1 text-[clamp(1rem,2.4vh,1.6rem)] leading-tight text-forest-800">{a.work.name}</p>
-              <p className="mt-[0.8vh] text-[clamp(0.74rem,1.5vh,0.9rem)] leading-snug text-forest-900/65 [@media(max-height:32rem)]:hidden">{a.work.line}</p>
-            </div>
+        <div className="max-w-[36rem] landscape:text-right [@media(max-height:32rem)]:mb-[calc(var(--watermark-h)+0.25rem)]">
+          <p data-in className="label text-gold-deep [@media(max-height:32rem)]:hidden">{a.eyebrow}</p>
+          <div className="mt-[3vh] space-y-[1.8vh] text-[clamp(0.84rem,1.8vh,1.08rem)] leading-[1.8] text-forest-900/80 [@media(max-height:32rem)]:mt-0 [@media(max-height:32rem)]:space-y-1.5 [@media(max-height:32rem)]:text-[0.8rem] [@media(max-height:32rem)]:leading-snug">
+            {/* a phone on its side keeps the first two, so the signature stays in sight */}
+            {a.message.map((m, i) => (
+              <p key={m.slice(0, 24)} data-in className={i > 1 ? '[@media(max-height:32rem)]:hidden' : ''}>
+                {m}
+              </p>
+            ))}
+          </div>
+          <div data-in className="mt-[5vh] [@media(max-height:32rem)]:mt-3">
+            <p className="font-display text-[clamp(1.6rem,4vh,2.8rem)] italic leading-none text-forest-800">{a.name}</p>
+            <p className="label mt-[1.2vh] text-forest-900/55">{a.role}</p>
           </div>
         </div>
       </div>
@@ -132,57 +106,38 @@ function Architect() {
   )
 }
 
-// The architect, second page: his message whole, in his words, signed, with the four ideas it rests
-// on numbered beneath; the two towers he describes run off the right edge (upright, above).
+// The architect's vision, laid out as the landscape vision is: a heading, his line, two short
+// paragraphs, and beside them the two towers he describes, in an arched window.
 function Vision() {
   const v = OVERVIEW.vision
-  const a = OVERVIEW.architect
   return (
     <div className="absolute inset-0 bg-paper text-forest-900">
-      {/* landscape: run off the right edge, between the bars (a phone on its side gives the words the room) */}
-      <figure data-fade className="absolute top-[calc(var(--chrome-top)+1vh)] right-0 bottom-(--chrome-bot) hidden w-[36vw] landscape:block [@media(max-height:32rem)]:hidden">
-        <img src={v.image} alt="The two staggered towers of Urban Reserve over their forest, at dusk" className="size-full object-cover object-[55%_40%]" />
-        <Accents className="absolute -left-[clamp(0.9rem,2vh,1.4rem)] bottom-[clamp(1rem,3vh,2rem)] flex-col" />
-      </figure>
-
-      <div className="safe pane relative flex h-full flex-col justify-center-safe landscape:pr-[calc(36vw+clamp(2.5rem,5vw,6rem))] [@media(max-height:32rem)]:pr-(--gutter)">
-        {/* upright: first, in the flow */}
-        <figure data-in className="relative mb-[4vh] h-[28vh] shrink-0 landscape:hidden">
-          <img src={v.image} alt="" className="size-full object-cover object-[55%_40%]" />
-          <Accents className="absolute -bottom-[clamp(0.9rem,2vh,1.4rem)] left-4" />
-        </figure>
-        <div className="max-w-[54rem] landscape:mx-auto [@media(max-height:32rem)]:max-w-none">
-          <p data-in className="label text-gold-deep">{v.eyebrow}</p>
-          <h2 data-in className="display mt-[1.4vh] text-[clamp(1.9rem,5.2vh,4rem)] leading-[1.02] text-forest-800 [@media(max-height:32rem)]:text-[1.6rem]">
+      <img src={OVERVIEW.landscape.texture} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-[0.07] mix-blend-multiply" />
+      <Botanical kind="star" seed={9} depth={12} className={`bottom-0 right-[2%] w-[44%] ${EMBOSS}`} />
+      <div className="safe pane relative grid h-full grid-cols-[minmax(0,1fr)] items-center gap-[4vh] [align-content:safe_center] landscape:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] landscape:gap-[4vw] lg:pl-[8vw]">
+        <div className="max-w-[38rem]">
+          <p data-in className="label text-gold-deep [@media(max-height:32rem)]:hidden">{v.eyebrow}</p>
+          <h2 data-in className="display mt-[1.4vh] text-[clamp(1.6rem,min(6vh,8.6vw),4.6rem)] font-normal leading-[1.02] text-forest-800">
             {v.title.map((t) => (
-              <span key={t} className="block [@media(max-height:32rem)]:inline [@media(max-height:32rem)]:after:content-['_']">
+              <span key={t} className="block">
                 {t}
               </span>
             ))}
           </h2>
-          <div className="mt-[2.6vh] columns-1 gap-[2.4vw] text-[clamp(0.8rem,1.7vh,1.02rem)] leading-relaxed text-forest-900/80 xl:columns-2 [@media(max-height:32rem)]:columns-2 [@media(max-height:32rem)]:text-[0.78rem] [@media(max-height:32rem)]:leading-snug [&>p]:mb-[1.4vh] [&>p]:break-inside-avoid">
-            {v.message.map((m, i) => (
-              <p key={m.slice(0, 24)} data-in className={i === 0 ? 'first-letter:float-left first-letter:mr-2 first-letter:font-display first-letter:text-[3.1em] first-letter:leading-[0.8] first-letter:text-ember' : ''}>
-                {m}
+          <p data-in className="display mt-[1.6vh] text-[clamp(1.05rem,2.7vh,1.9rem)] text-balance text-ember-deep">
+            {v.line}
+          </p>
+          <div className="mt-[3vh] space-y-[1.6vh] text-[clamp(0.82rem,1.75vh,1.05rem)] leading-relaxed text-forest-900/75 [@media(max-height:32rem)]:mt-2">
+            {v.body.map((b, i) => (
+              <p key={b.slice(0, 24)} data-in className={i ? '' : '[@media(max-height:32rem)]:hidden'}>
+                {b}
               </p>
             ))}
           </div>
-
-          <ol className="mt-[2.4vh] grid grid-cols-2 gap-x-[2vw] gap-y-[1.8vh] border-t border-forest-900/15 pt-[2.4vh] lg:grid-cols-4 [@media(max-height:32rem)]:hidden">
-            {v.ideas.map((d, i) => (
-              <li key={d.title} data-in>
-                <span className="font-display text-[clamp(0.95rem,2vh,1.3rem)] text-ember">{String(i + 1).padStart(2, '0')}</span>
-                <p className="display mt-[0.6vh] text-[clamp(0.95rem,2.1vh,1.35rem)] leading-tight text-forest-800">{d.title}</p>
-                <p className="mt-[0.5vh] text-[clamp(0.72rem,1.45vh,0.88rem)] leading-snug text-forest-900/60">{d.line}</p>
-              </li>
-            ))}
-          </ol>
-
-          <div data-in className="mt-[2.8vh] border-l-2 border-gold pl-4 [@media(max-height:32rem)]:mt-1">
-            <p className="display text-[clamp(1.1rem,2.6vh,1.8rem)] leading-tight text-forest-800 [@media(max-height:32rem)]:text-[1rem]">{a.name}</p>
-            <p className="label mt-1 text-forest-900/60">{v.sign}</p>
-          </div>
         </div>
+        <figure data-in className="aspect-[3/4] h-[min(28vh,60vw)] justify-self-center overflow-hidden rounded-t-full shadow-[0_40px_80px_-40px_rgb(20_52_41/0.55)] landscape:h-[min(58vh,34vw)] [@media(max-height:32rem)]:hidden">
+          <img src={v.image} alt="The two staggered towers of Urban Reserve over their forest, at dusk" className="size-full object-cover object-[55%_40%]" />
+        </figure>
       </div>
     </div>
   )
@@ -215,33 +170,35 @@ function Landscape() {
   )
 }
 
-// The landscape brief, The Sculpted Forest: the forest deck render across the screen, the name, the
-// brief's line and one sentence, its two levels by name with a line each, and its sign-off. A green shade from the left
-// (from the foot on a portrait screen) keeps the words clear.
+// The landscape brief, The Sculpted Forest: the forest deck render across the screen, and over its
+// shaded side the words laid out as the landscape vision's are: a heading, the brief's line and two
+// short paragraphs. The shade runs from the left (from the foot on a portrait screen).
 function Forest() {
   const f = OVERVIEW.forest
   return (
     <div className="absolute inset-0 bg-forest-950 text-ivory">
       <img data-kb src={f.image} alt="A timber deck among the trees of the sculpted forest" className="absolute inset-0 h-full w-full object-cover will-change-transform" />
-      <div className="absolute inset-0 bg-linear-to-t from-forest-950/95 via-forest-950/60 to-forest-950/10 landscape:bg-linear-to-r landscape:from-forest-950/90 landscape:via-forest-950/55 landscape:to-transparent" />
-      <div className="safe pane relative flex h-full flex-col justify-end-safe pb-(--chrome-bot) landscape:max-w-[min(46rem,50%)] landscape:justify-center-safe">
-        <h2 data-in className="display text-[clamp(2.4rem,7.5vh,6rem)] font-normal leading-[0.98]">
-          {f.title.map((t) => (
-            <span key={t} className="block">{t}</span>
-          ))}
-        </h2>
-        <p data-in className="display mt-[1.6vh] text-[clamp(1.05rem,2.7vh,1.9rem)] text-gold-lit">{f.line}</p>
-        <p data-in className="mt-[2.4vh] max-w-[34rem] text-[clamp(0.8rem,1.75vh,1rem)] leading-relaxed text-ivory/80 [@media(max-height:32rem)]:hidden">{f.body}</p>
-        <dl className="mt-[3.4vh] flex gap-[3vw]">
-          {f.levels.map((l) => (
-            <div key={l.label} data-in className="max-w-[17rem] border-l border-gold/70 pl-4">
-              <dt className="label text-ivory/60">{l.label}</dt>
-              <dd className="font-display mt-1 text-[clamp(1.05rem,2.5vh,1.7rem)] leading-tight">{l.name}</dd>
-              <dd className="mt-[1vh] text-[clamp(0.75rem,1.55vh,0.92rem)] leading-snug text-ivory/70 [@media(max-height:32rem)]:hidden">{l.about}</dd>
-            </div>
-          ))}
-        </dl>
-        <p data-in className="label mt-[3.4vh] text-ivory/70 [@media(max-height:32rem)]:hidden">{f.close}</p>
+      <div className="absolute inset-0 bg-linear-to-t from-forest-950/95 via-forest-950/65 to-forest-950/10 landscape:bg-linear-to-r landscape:from-forest-950/90 landscape:via-forest-950/55 landscape:to-transparent" />
+      <div className="safe pane relative grid h-full grid-cols-[minmax(0,1fr)] content-end-safe pb-(--chrome-bot) landscape:[align-content:safe_center] lg:pl-[8vw]">
+        <div className="max-w-[38rem]">
+          <h2 data-in className="display text-[clamp(1.6rem,min(6vh,8.6vw),4.6rem)] font-normal leading-[1.02]">
+            {f.title.map((t) => (
+              <span key={t} className="block">
+                {t}
+              </span>
+            ))}
+          </h2>
+          <p data-in className="display mt-[1.6vh] text-[clamp(1.05rem,2.7vh,1.9rem)] text-balance text-gold-lit">
+            {f.line}
+          </p>
+          <div className="mt-[3vh] space-y-[1.6vh] text-[clamp(0.82rem,1.75vh,1.05rem)] leading-relaxed text-ivory/80 [@media(max-height:32rem)]:mt-2">
+            {f.body.map((b, i) => (
+              <p key={b.slice(0, 24)} data-in className={i ? '' : '[@media(max-height:32rem)]:hidden'}>
+                {b}
+              </p>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -314,30 +271,23 @@ function Building() {
   )
 }
 
-// The arrival lobby: the render as large as the screen allows, clear and still (no shade over it, no
-// slow zoom), beside a slim panel only as wide as its heading; on a portrait screen the words sit in a
-// strip below it. The render is nearly square, so a wide frame trims a little of the ceiling and the
-// floor, keeping the chandelier and the lounge.
+// The arrival lobby: the render across the whole screen, a soft shade from the left (from the foot
+// on a portrait screen) and its plant drawn faintly over it, and the heading on the left in ivory.
 function Lobby() {
   const l = OVERVIEW.lobby
   return (
-    <div className="absolute inset-0 grid grid-rows-[minmax(0,1fr)_auto] bg-sand text-ivory landscape:grid-cols-[minmax(0,1fr)_auto] landscape:grid-rows-1">
-      <div data-fade className="relative overflow-hidden">
-        <img src={l.image} alt="The arrival lobby" className="absolute inset-0 h-full w-full object-cover object-[50%_45%]" />
-      </div>
-      <div className="relative">
-        <Terrain side="left" seed={51} amp={60} className="absolute inset-y-0 left-[-2.9vw] hidden h-full w-[3vw] text-sand landscape:block" />
-        {/* beside the render it grows with the slim panel, kept short enough to stay under the words */}
-        <Botanical kind="star" seed={4} depth={14} className="bottom-0 right-[-6vw] w-[30vw] max-w-none text-ivory/20 landscape:w-[min(116%,55vh)]" />
-        {/* the strip below the render needs no room for the top bar, nor its fade, but its words stay
-            above the watermark, which rides over the slide controls there */}
-        <div className="safe pane relative flex h-full flex-col justify-center-safe pt-[4.5vh] portrait:pb-[calc(var(--chrome-bot)+var(--watermark-h)+0.75rem)] portrait:[mask-image:none] landscape:pt-(--chrome-top) landscape:pl-[3vw]">
-          <h2 data-in className="display mt-[2vh] text-[clamp(2rem,6vh,4.4rem)] font-normal landscape:text-[clamp(1.75rem,5.2vh,4rem)]">
-            {l.title.map((t) => (
-              <span key={t} className="block">{t}</span>
-            ))}
-          </h2>
-        </div>
+    <div className="absolute inset-0 bg-forest-950 text-ivory">
+      <img data-fade src={l.image} alt="The arrival lobby" className="absolute inset-0 h-full w-full object-cover object-[50%_45%]" />
+      <div className="absolute inset-0 bg-linear-to-t from-forest-950/85 via-forest-950/30 to-transparent landscape:bg-linear-to-r landscape:from-forest-950/80 landscape:via-forest-950/35 landscape:to-transparent" />
+      <Botanical kind="star" seed={4} depth={14} className="bottom-0 left-[-4vw] w-[min(60vw,62vh)] text-ivory/15" />
+      <div className="safe pane relative grid h-full grid-cols-[minmax(0,1fr)] content-end-safe pb-(--chrome-bot) landscape:[align-content:safe_center] lg:pl-[8vw]">
+        <h2 data-in className="display text-[clamp(2rem,min(7.5vh,10vw),5.6rem)] font-normal leading-[1.02] [text-shadow:0_2px_30px_rgb(0_0_0/0.35)]">
+          {l.title.map((t) => (
+            <span key={t} className="block">
+              {t}
+            </span>
+          ))}
+        </h2>
       </div>
     </div>
   )

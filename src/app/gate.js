@@ -3,7 +3,9 @@
 // An intro can name covers it plays under anyway: the Location world descends through its clouds
 // while the page's own entrance waits behind the 'world' cover.
 const doc = document
-export const fullscreenSupported = () => Boolean(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
+// opened from a home screen it already has the whole screen, with no browser bars to hide
+const installed = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true
+export const fullscreenSupported = () => !installed() && Boolean(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
 export const isFullscreen = () => Boolean(doc.fullscreenElement || doc.webkitFullscreenElement)
 
 const covers = new Set(fullscreenSupported() && !isFullscreen() ? ['fullscreen'] : [])

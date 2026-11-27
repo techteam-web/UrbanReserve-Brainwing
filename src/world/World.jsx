@@ -9,7 +9,7 @@ import { createClouds } from './clouds'
 import { createBirds } from './birds'
 import { createDirector, heightScale } from './camera'
 import { SUN } from './light'
-import { setMapNight } from './night'
+import { addNightTint, setMapNight } from './night'
 import { toLocal } from './geo'
 import { HOTSPOTS, PLACES, VIEWS, enu, isHood, kindOf, kindView, litPlaces, neighbourhoodBounds, placeIndex, placeLocal, placeView } from './stops'
 import { SOLIDS, TOWER_H } from './site'
@@ -372,14 +372,15 @@ export default function World({ stop, inset, night = false, hotspots = true, onS
 
       map.on('load', async () => {
         map.addLayer(reserve.layer, 'road-label')
+        // the moonlight over the flat map, under the warm layers (the track, the reserve's edge, the
+        // drives), which keep their colour after dark (see night.js)
+        addNightTint(map, 'track')
         // small screens start with the credits folded into their (i) button
         if (insetRef.current) map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
         const director = createDirector(map)
         // Night falls, or the day comes back, over 1.6 s: the map's colours (see night.js), the 3D
-        // scene's light and the clouds' haze together.
+        // scene's light and the clouds' haze together, every frame.
         const HAZE = [[0.71, 0.79, 0.86], [0.09, 0.13, 0.17]]
-        // the map's colours follow in twelve steps (see night.js)
-        let step = -1
         const setNight = (on) => {
           gsap.to(dusk, {
             k: on ? 1 : 0,
@@ -388,11 +389,7 @@ export default function World({ stop, inset, night = false, hotspots = true, onS
             overwrite: true,
             onUpdate: () => {
               reserve.setNight(dusk.k)
-              const s = Math.round(dusk.k * 12)
-              if (s !== step) {
-                step = s
-                setMapNight(map, s / 12)
-              }
+              setMapNight(map, dusk.k)
               if (!clouds) return
               clouds.params.haze = HAZE[0].map((d, i) => d + (HAZE[1][i] - d) * dusk.k)
               clouds.params.night = dusk.k
