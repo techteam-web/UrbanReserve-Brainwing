@@ -59,7 +59,6 @@ export default function Building() {
   const root = useRef(null)
   const room = useRef(null)
   const words = useRef(null)
-  const head = useRef(null)
   const art = useRef(null)
   const marks = useRef(null)
   const bands = useRef(new Map())
@@ -87,11 +86,7 @@ export default function Building() {
       const beside = matchMedia(BESIDE).matches
       let { left, top, bottom } = r
       if (beside) left = Math.max(left, p.right + 24)
-      // upright, the towers also stand below the switch at the top
-      else {
-        bottom = Math.min(bottom, p.top - 16)
-        top = Math.max(top, head.current.getBoundingClientRect().bottom + 12)
-      }
+      else bottom = Math.min(bottom, p.top - 16)
       const width = Math.max(r.right - left, 1)
       const height = Math.max(bottom - top, 1)
       const fitted = Math.min(width / F.w, height / F.h)
@@ -101,7 +96,7 @@ export default function Building() {
       const wantX = left - stage.left + width / 2 - (F.x + F.w / 2) * s
       const wantY = top - stage.top + height / 2 - (F.y + F.h / 2) * s
       const x = W * s >= stage.width ? clamp(wantX, stage.width - W * s, 0) : wantX
-      // (upright, it may come down to clear the switch, its top fading into the dark)
+      // (upright, it may sit a little lower, its top fading into the dark)
       const y = H * s >= stage.height ? clamp(wantY, stage.height - H * s, 0) : beside ? Math.min(0, wantY) : wantY
       for (const el of [art.current, marks.current]) {
         el.style.width = `${W * s}px`
@@ -203,13 +198,13 @@ export default function Building() {
         {tag && <FloorMark {...tag} />}
       </div>
 
-      {/* the two ways in, at the top, just under the sound switch */}
-      <div ref={head} data-in className="absolute left-(--gutter) top-(--chrome-top) w-[min(calc(100%-2*var(--gutter)),22rem)]">
-        <ModeSwitch tone="dark" />
-      </div>
-
-      {/* taps go through the words to any floor beneath them */}
+      {/* taps go through the words to any floor beneath them; only the switch takes its own. Here,
+          before a way in is chosen, the switch heads the words; a floor or the unit finder has it at
+          the top, and it glides there as they open (see ModeSwitch). */}
       <div ref={words} className="pointer-events-none absolute inset-x-(--gutter) bottom-[calc(var(--chrome-bot)+1.25rem)] landscape:right-auto landscape:bottom-auto landscape:top-1/2 landscape:w-[clamp(15rem,28vw,31rem)] landscape:-translate-y-1/2">
+        <div className="pointer-events-auto mb-[3.4vh] w-[min(100%,22rem)]">
+          <ModeSwitch tone="dark" />
+        </div>
         <p data-in className="label text-[max(0.62rem,9px)] text-gold-lit">
           {TOWER?.label} · Floors {HOME_FLOORS}
         </p>
