@@ -333,8 +333,8 @@ export default function UnitFinder() {
       <div className="safe pane h-full">
         {/* landscape: the filters down the left, the homes beside them; upright, one after the other */}
         <div className="flex min-h-full flex-col gap-[clamp(0.8rem,2vh,1.4rem)] landscape:grid landscape:h-full landscape:grid-cols-[var(--side-w)_minmax(0,1fr)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-[2.4vw]">
-          {/* the two ways in, at the top, just under the sound switch */}
-          <div data-in className="w-[min(100%,22rem)] landscape:w-full">
+          {/* the two ways in, at the top, just under the sound switch (it brings itself in) */}
+          <div className="w-[min(100%,22rem)] landscape:w-full">
             <ModeSwitch />
           </div>
 

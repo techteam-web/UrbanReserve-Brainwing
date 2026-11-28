@@ -421,8 +421,8 @@ export default function FloorPlan({ at }) {
         {/* landscape (a phone on its side too): the tower down the left, the plan beside it; upright,
             the tower and its pills above the plan */}
         <div className="grid min-h-full grid-rows-[auto_auto_minmax(20rem,1fr)] gap-[2vh] landscape:h-full landscape:grid-cols-[var(--tower-w)_minmax(0,1fr)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-[2vw]">
-          {/* the two ways in, at the top, just under the sound switch */}
-          <div data-in className="w-[min(100%,22rem)] landscape:w-full">
+          {/* the two ways in, at the top, just under the sound switch (it brings itself in) */}
+          <div className="w-[min(100%,22rem)] landscape:w-full">
             <ModeSwitch />
           </div>
 
